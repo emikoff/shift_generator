@@ -1,0 +1,9 @@
+machine_id,night,day,evening
+PM-01,True,True,True
+PM-02,True,True,True
+PM-03,True,True,True
+PM-04,True,True,True
+SM-01,True,True,True
+SM-02,True,True,True
+SM-03,True,True,True
+SM-04,True,True,True
