@@ -36,10 +36,10 @@ class Scheduler:
         # --- Блок 1: Подготовка self.workers
         # Определяем основную профессию
         cols = ["flat_printing", "letterpress_printing", "inkjet_printing"]
-        self.workers["основная_профессия"] = self.workers[cols].idxmax(axis=1)
+        self.workers["primary_profession"] = self.workers[cols].idxmax(axis=1)
 
         # Добавляем все професии работника
-        self.workers["все_профессии"] = self.workers.apply(
+        self.workers["all_professions"] = self.workers.apply(
             lambda row: [c for c in cols if row[c] > 0], axis=1
         )
 
@@ -137,12 +137,12 @@ class Scheduler:
             & (~self.shift_candidates["worker_id"].isin(assigned_shift))
         )
 
-        profession_mask = self.shift_candidates["все_профессии"].apply(
+        profession_mask = self.shift_candidates["all_professions"].apply(
             lambda profs: profession in profs
         )
 
         if mode == "ferst":
-            primary_mask = self.shift_candidates["основная_профессия"] == profession
+            primary_mask = self.shift_candidates["primary_profession"] == profession
             rank_mask = self.shift_candidates[profession] == min_rank
             candidates = self.shift_candidates[base_mask & primary_mask & rank_mask]
         elif mode == "second":
