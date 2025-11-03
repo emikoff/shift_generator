@@ -1,4 +1,4 @@
-﻿worker_id,name,плоская,высокая,струйная
+﻿worker_id,name,flat_printing,letterpress_printing,inkjet_printing
 W001,Работник П 01,7,6,5
 W002,Работник П 02,6,5,0
 W003,Работник П 03,5,4,0

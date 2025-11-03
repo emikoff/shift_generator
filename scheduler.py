@@ -35,7 +35,7 @@ class Scheduler:
         """
         # --- Блок 1: Подготовка self.workers
         # Определяем основную профессию
-        cols = ["плоская", "высокая", "струйная"]
+        cols = ["flat_printing", "letterpress_printing", "inkjet_printing"]
         self.workers["основная_профессия"] = self.workers[cols].idxmax(axis=1)
 
         # Добавляем все професии работника
@@ -59,10 +59,11 @@ class Scheduler:
             .reset_index(drop=True)
         )
 
-        # Заменяем названия смен на русские
-        plan_long = plan_long.replace(
-            {"shift": {"night": "Ночь", "day": "День", "evening": "Вечер"}}
-        )
+        # На удаление
+        # # Заменяем названия смен на русские
+        # plan_long = plan_long.replace(
+        #     {"shift": {"night": "night", "day": "day", "evening": "evening"}}
+        # )
 
         plan_long = plan_long.merge(
             self.equipment[["machine_id", "machine_type"]], on="machine_id", how="left"
@@ -77,9 +78,9 @@ class Scheduler:
         """
         Формирует общий датафрейм кандидатов на target_week для всех смен сразу,
         применяя правило переворота смен:
-            Ночь -> День, День -> Вечер, Вечер -> Ночь
+            Ночь -> Вечер, День -> Ночь, Вечер -> День
         """
-        shift_map = {"Ночь": "Вечер", "День": "Ночь", "Вечер": "День"}
+        shift_map = {"night": "evening", "day": "night", "evening": "day"}
 
         # Базовый слой — прошлая неделя
         prev = self.schedule.loc[self.schedule["week"] == target_week - 1].copy()
@@ -99,7 +100,7 @@ class Scheduler:
         counts = self.shift_candidates["shift"].value_counts()
         total = int(counts.sum())
         print(f"Кандидаты на работу в неделю {target_week}: всего {total}")
-        for s in ["День", "Вечер", "Ночь"]:
+        for s in ["day", "evening", "night"]:
             print(f"  {s}: {int(counts.get(s, 0))}")
 
     def _create_shift_slots(self, shif_name, target_week):
@@ -164,7 +165,7 @@ class Scheduler:
         shift_equipment,
         assigned_shift,
         mode="ferst",
-        shift_name="День",
+        shift_name="day",
     ):
         free_positions = []
         updated = shift_equipment.copy()
@@ -262,7 +263,7 @@ class Scheduler:
         return shift_equipment, assigned_shift
 
     def _staff_team(
-        self, shift_equipment, assigned_shift, shift_name="Ночь", mode="third"
+        self, shift_equipment, assigned_shift, shift_name="night", mode="third"
     ):
         incomplete = self._incomplete_team(shift_equipment)
         if incomplete.empty:
@@ -299,18 +300,18 @@ class Scheduler:
         self.build_shift_rotation(target_week)
 
         # Создаем пустые слоты (потребности)
-        self.shift_equipment_day = self._create_shift_slots("День", target_week)
-        self.shift_equipment_evening = self._create_shift_slots("Вечер", target_week)
-        self.shift_equipment_night = self._create_shift_slots("Ночь", target_week)
+        self.shift_equipment_day = self._create_shift_slots("day", target_week)
+        self.shift_equipment_evening = self._create_shift_slots("evening", target_week)
+        self.shift_equipment_night = self._create_shift_slots("night", target_week)
 
         # Назначение работников на позиции
         default_tourse = [
-            ("ferst", "День"),
-            ("second", "День"),
-            ("ferst", "Ночь"),
-            ("second", "Ночь"),
-            ("ferst", "Вечер"),
-            ("second", "Вечер"),
+            ("ferst", "day"),
+            ("second", "day"),
+            ("ferst", "night"),
+            ("second", "night"),
+            ("ferst", "evening"),
+            ("second", "evening"),
         ]
         default_tourse_day = default_tourse.copy()
         default_tourse_evening = default_tourse[4:] + default_tourse[:4]
@@ -326,11 +327,11 @@ class Scheduler:
         self.shift_equipment_day, self.assigned_day = self._staff_team(
             self.shift_equipment_day,
             self.assigned_day,
-            shift_name="День",
+            shift_name="day",
         )
         self.global_assigned.update(self.assigned_day)
 
-        # Генератор Вечерней смены
+        # Генератор eveningней смены
         self.shift_equipment_evening, self.assigned_evening = (
             self._run_assignment_for_shift(
                 self.shift_equipment_evening,
@@ -344,7 +345,7 @@ class Scheduler:
         self.shift_equipment_evening, self.assigned_evening = self._staff_team(
             self.shift_equipment_evening,
             self.assigned_evening,
-            shift_name="Вечер",
+            shift_name="evening",
         )
         self.global_assigned.update(self.assigned_evening)
 
@@ -360,7 +361,7 @@ class Scheduler:
         self.shift_equipment_night, self.assigned_night = self._staff_team(
             self.shift_equipment_night,
             self.assigned_night,
-            shift_name="Ночь",
+            shift_name="night",
         )
         self.global_assigned.update(self.assigned_night)
 
@@ -368,7 +369,7 @@ class Scheduler:
         """
         Собирает все смены в один DataFrame и добавляет имена.
         """
-        # Собираем все смены в один график Ночь, День, Вечер
+        # Собираем все смены в один график night, day, evening
         all_shifts = pd.concat(
             [
                 self.shift_equipment_night,
