@@ -1,12 +1,14 @@
 import pandas as pd
 
 
-class Scheduler:
+class DataPipeline:
+    """_summary_
+
+    Returns:
+        _type_: _description_
+    """
+
     def __init__(self, workers, equipment, schedule, requirements, plan):
-        """
-        Конструктор класса. Загружает данные и выполняет
-        первичную, не зависящую от недели, подготовку.
-        """
         # Загрузка датафреймов
         self.workers = workers
         self.equipment = equipment
@@ -14,21 +16,21 @@ class Scheduler:
         self.requirements = requirements
         self.plan = plan
 
-        # Декларация будущих атрибутов
+        # Декларация будущих данных
         self.plan_long = None
         self.shift_candidates = None
         self.shift_equipment_day = None
         self.shift_equipment_evening = None
         self.shift_equipment_night = None
-        self.global_assigned = set()
-        self.assigned_day = set()
-        self.assigned_evening = set()
-        self.assigned_night = set()
 
-        # Запуск подготовки датафремов
-        self.prepare_data()
+        # Запускаем подготовку данных
+        # - self.workers определяет основную  и смежные професии
+        # - self.plan_long -> self.plan_long
+        #   1 строка = machine_id, shift, machine_type, week
+        self._prepare_base_data()
+        print("DataPipeline: Базовые данные подготовлены.")
 
-    def prepare_data(self):
+    def _prepare_base_data(self):
         """
         Выполняет универсальную подготовку данных (добавление профессий,
         создание 'plan_long').
@@ -59,12 +61,6 @@ class Scheduler:
             .reset_index(drop=True)
         )
 
-        # На удаление
-        # # Заменяем названия смен на русские
-        # plan_long = plan_long.replace(
-        #     {"shift": {"night": "night", "day": "day", "evening": "evening"}}
-        # )
-
         plan_long = plan_long.merge(
             self.equipment[["machine_id", "machine_type"]], on="machine_id", how="left"
         )
@@ -74,7 +70,7 @@ class Scheduler:
         # Позже удалить
         print("prepare_data() завершен.")
 
-    def build_shift_rotation(self, target_week) -> pd.DataFrame:
+    def _build_shift_rotation(self, target_week) -> pd.DataFrame:
         """
         Формирует общий датафрейм кандидатов на target_week для всех смен сразу,
         применяя правило переворота смен:
@@ -107,6 +103,7 @@ class Scheduler:
         """
         Вспомогательный метод. Создает пустые слоты для одной смены
         на основе self.plan_long и self.requirements.
+        Возвращает: shift_slots пустые слоты потребности в рабочих
         """
         # Добавляем 'week' к self.plan_long
         plan_for_week = self.plan_long.copy()
@@ -122,6 +119,40 @@ class Scheduler:
         shift_slots["worker_id"] = None
 
         return shift_slots
+
+    def run(self, target_week):
+        # Получаем кандидатов для работы на целевую неделю
+        self._build_shift_rotation(target_week)
+
+        # Создаем пустые слоты (потребности)
+        self.shift_equipment_day = self._create_shift_slots("day", target_week)
+        self.shift_equipment_evening = self._create_shift_slots("evening", target_week)
+        self.shift_equipment_night = self._create_shift_slots("night", target_week)
+
+
+class AssignmentEngine:
+    def __init__(
+        self,
+        shift_candidates,
+        shift_equipment_day,
+        shift_equipment_evening,
+        shift_equipment_night,
+    ):
+        """
+        Конструктор класса. Загружает данные и выполняет
+        первичную, не зависящую от недели, подготовку.
+        """
+        # Загрузка датафреймов
+        self.shift_candidates = shift_candidates
+        self.shift_equipment_day = shift_equipment_day
+        self.shift_equipment_evening = shift_equipment_evening
+        self.shift_equipment_night = shift_equipment_night
+
+        # Декларация будущих атрибутов
+        self.global_assigned = set()
+        self.assigned_day = set()
+        self.assigned_evening = set()
+        self.assigned_night = set()
 
     def _find_candidates(self, assigned_shift, mode, profession, min_rank, shift_name):
         """
@@ -285,26 +316,12 @@ class Scheduler:
 
         return updated, assigned_shift
 
-    def run(self, target_week):
+    def run(self):
         """
         Главный метод-дирижер. Запускает полный цикл
         планирования для 'target_week'.
         """
-        # Сбрасываем состояние для нового запуска
-        self.global_assigned = set()
-        self.assigned_day = set()
-        self.assigned_evening = set()
-        self.assigned_night = set()
-
-        # Получаем кандидатов для работы на целевую неделю
-        self.build_shift_rotation(target_week)
-
-        # Создаем пустые слоты (потребности)
-        self.shift_equipment_day = self._create_shift_slots("day", target_week)
-        self.shift_equipment_evening = self._create_shift_slots("evening", target_week)
-        self.shift_equipment_night = self._create_shift_slots("night", target_week)
-
-        # Назначение работников на позиции
+        # Конфигурация раундов назначение работников на позиции
         default_tourse = [
             ("ferst", "day"),
             ("second", "day"),
@@ -364,6 +381,29 @@ class Scheduler:
             shift_name="night",
         )
         self.global_assigned.update(self.assigned_night)
+
+
+class SchedulerReport:
+    def __init__(
+        self,
+        shift_equipment_night,
+        shift_equipment_day,
+        shift_equipment_evening,
+        workers,
+    ):
+        self.shift_equipment_night = shift_equipment_night
+        self.shift_equipment_day = shift_equipment_day
+        self.shift_equipment_evening = shift_equipment_evening
+        self.workers = workers
+
+    def _summary_team(self, shift_equipment):
+        summary = shift_equipment.groupby(
+            ["machine_id", "machine_type"], as_index=False
+        ).agg(
+            required=("position", "count"),
+            assigned=("worker_id", lambda s: s.notna().sum() - (s == "").sum()),
+        )
+        return summary
 
     def get_final_assignments(self):
         """

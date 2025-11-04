@@ -1,38 +1,55 @@
-from scheduler import Scheduler
+from scheduler import DataPipeline, AssignmentEngine, SchedulerReport
 import pandas as pd
 
+target_week = 2
+
 # 1. Загрузка датавреймов
-print("--- 1. Загрузка данных ---")
+print("1. Загрузка данных")
 workers = pd.read_csv("workers.csv")
 equipment = pd.read_csv("equipment.csv")
 schedule = pd.read_csv("schedule_template.csv")
 requirements = pd.read_csv("position_requirements.csv")
 plan = pd.read_csv("plan.csv")
 
-print("--- 2. Создание Scheduler ---")
-# 2. Создаем класс Scheduler
-scheduler = Scheduler(workers, equipment, schedule, requirements, plan)
+# 2. Подготавливаем данные
+data_pipeline = DataPipeline(workers, equipment, schedule, requirements, plan)
+data_pipeline.run(target_week)
 
-# 3. Запускаем процесс генерации графика работы для недели 2
-scheduler.run(target_week=2)
+# 3. Запускаем процесс генерации графика работы для недели
+#    Передаем ГОТОВЫЕ данные из pipeline в engine
+assignment_engine = AssignmentEngine(
+    data_pipeline.shift_candidates,
+    data_pipeline.shift_equipment_day,
+    data_pipeline.shift_equipment_evening,
+    data_pipeline.shift_equipment_night,
+)
 
-print("\n--- 4. Получение результатов ---")
+assignment_engine.run()
 
+
+# 4. Формирование отчета
+print("\n4. Получение результатов")
+report = SchedulerReport(
+    assignment_engine.shift_equipment_night,
+    assignment_engine.shift_equipment_day,
+    assignment_engine.shift_equipment_evening,
+    data_pipeline.workers,
+)
 # Получаем итоговые назначения
-final_assignments = scheduler.get_final_assignments()
+final_assignments = report.get_final_assignments()
 print("\nИтоговые назначения:")
 print(final_assignments.to_string())
 
 # Получаем сводку по бригадам
-brigade_summary = scheduler.get_brigade_summary()
+brigade_summary = report.get_brigade_summary()
 print("\nСводка по бригадам:")
 print(brigade_summary.to_string(index=False))
 
 # Получаем незаполненные позиции
-unfilled = scheduler.get_unfilled_positions()
+unfilled = report.get_unfilled_positions()
 print(f"\nВсего незаполненных позиций: {len(unfilled)}")
 
-# --- 5. Обновление файлов ---
+# 5. Обновление файлов ---
 # print("\n--- 5. Сохранение результатов ---")
 
 # final_assignments.to_csv("assignment_output_OOP.csv", index=False, encoding="utf-8-sig")
