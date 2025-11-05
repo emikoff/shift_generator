@@ -395,6 +395,8 @@ class SchedulerReport:
         self.shift_equipment_day = shift_equipment_day
         self.shift_equipment_evening = shift_equipment_evening
         self.workers = workers
+        self.final_assignments_df = None
+        self.report = None
 
     def _summary_team(self, shift_equipment):
         summary = shift_equipment.groupby(
@@ -403,6 +405,7 @@ class SchedulerReport:
             required=("position", "count"),
             assigned=("worker_id", lambda s: s.notna().sum() - (s == "").sum()),
         )
+
         return summary
 
     def get_final_assignments(self):
@@ -432,7 +435,7 @@ class SchedulerReport:
             by=["shift", "machine_id", "position"],
             ignore_index=True,
         )
-        return assigned_rows[
+        self.final_assignments_df = assigned_rows[
             ["week", "shift", "machine_id", "position", "worker_id", "name"]
         ]
 
@@ -448,12 +451,13 @@ class SchedulerReport:
             ],
             ignore_index=True,
         )
-        return all_shifts[all_shifts["worker_id"].isna()]
+        self.final_assignments_df = all_shifts[all_shifts["worker_id"].isna()]
 
     def get_brigade_summary(self):
         """
         Возвращает сводку по всем бригадам.
         """
+
         all_shifts = pd.concat(
             [
                 self.shift_equipment_night,
@@ -462,4 +466,5 @@ class SchedulerReport:
             ],
             ignore_index=True,
         )
-        return self._summary_team(all_shifts)
+
+        self.report = self._summary_team(all_shifts)
