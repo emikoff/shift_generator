@@ -1,3 +1,4 @@
+# pyuic5 ui_main_window.ui -o ui_main_window.py
 import sys
 import pandas as pd
 
@@ -5,7 +6,7 @@ import pandas as pd
 # 1. ИМПОРТЫ QT (Используем PyQt5)
 # -----------------------------------------------------------------
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QTableView
-from PyQt5.QtCore import QAbstractTableModel, Qt
+from PyQt5.QtCore import QAbstractTableModel, Qt, QDate
 
 # from PyQt5 import QtWidgets, QtCore
 # -----------------------------------------------------------------
@@ -59,6 +60,20 @@ class AppWindow(QMainWindow, Ui_MainWindow):
 
         self.setupUi(self)
 
+        # --- Настройка виджета выбора даты ---
+        self.week_date_edit.setCalendarPopup(True)
+        self.week_date_edit.setDisplayFormat("dd.MM.yyyy")
+
+        # Устанавливаем дату по умолчанию на СЛЕДУЮЩИЙ понедельник
+        today = QDate.currentDate()
+        day_of_week = today.dayOfWeek()  # 1 = Пн, 7 = Вс
+
+        # Магия расчета: (8 - 1 (Пн)) = 7 дней. (8 - 7 (Вс)) = 1 день.
+        days_to_next_monday = 8 - day_of_week
+
+        next_monday = today.addDays(days_to_next_monday)
+        self.week_date_edit.setDate(next_monday)
+
         # 4.3. Загружаем "сырые" данные
         try:
             self.workers_df = pd.read_csv("workers.csv")
@@ -105,7 +120,12 @@ class AppWindow(QMainWindow, Ui_MainWindow):
 
     def run_full_generation(self):
         """Запускается по нажатию 'generate_button'."""
-        target_week = self.week_spinbox.value()
+        # 1. Получаем полную дату (как объект QDate)
+        selected_date = self.week_date_edit.date()
+        # 2. Извлекаем из нее номер недели .weekNumber() возвращает (неделя, год)
+        (target_week, _) = selected_date.weekNumber()
+        print(target_week)
+
         if target_week > 0:
             QMessageBox.information(self, "Генерация", "Генерация запущениа")
             pipeline = DataPipeline(
@@ -139,13 +159,30 @@ class AppWindow(QMainWindow, Ui_MainWindow):
             self.final_assignments_df = scheduler_report.final_assignments_df
 
             # Cоздаем модель таблицы
-            assignments_Tabl = PandasModel(self.final_assignments_df)
+            assignments_Tabl_all = PandasModel(self.final_assignments_df)
+            assignments_Tabl_night = PandasModel(
+                self.final_assignments_df[self.final_assignments_df["shift"] == "night"]
+            )
+            assignments_Tabl_day = PandasModel(
+                self.final_assignments_df[self.final_assignments_df["shift"] == "day"]
+            )
+            assignments_Tabl_evening = PandasModel(
+                self.final_assignments_df[
+                    self.final_assignments_df["shift"] == "evening"
+                ]
+            )
 
             # 1. Устанавливаем модель в таблицу
-            self.results_table.setModel(assignments_Tabl)
+            self.results_table.setModel(assignments_Tabl_all)
+            self.results_table_night.setModel(assignments_Tabl_night)
+            self.results_table_day.setModel(assignments_Tabl_day)
+            self.results_table_evening.setModel(assignments_Tabl_evening)
 
             # 2. Меняем размер колонок
             self.results_table.resizeColumnsToContents()
+            self.results_table_night.resizeColumnsToContents()
+            self.results_table_day.resizeColumnsToContents()
+            self.results_table_evening.resizeColumnsToContents()
 
             QMessageBox.information(self, "Успех", "Генерация выполнена")
 
