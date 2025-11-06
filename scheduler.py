@@ -28,7 +28,7 @@ class DataPipeline:
         # - self.plan_long -> self.plan_long
         #   1 строка = machine_id, shift, machine_type, week
         self._prepare_base_data()
-        print("DataPipeline: Базовые данные подготовлены.")
+        # print("DataPipeline: Базовые данные подготовлены.")
 
     def _prepare_base_data(self):
         """
@@ -68,7 +68,7 @@ class DataPipeline:
         self.plan_long = plan_long
 
         # Позже удалить
-        print("prepare_data() завершен.")
+        # print("prepare_data() завершен.")
 
     def _build_shift_rotation(self, target_week) -> pd.DataFrame:
         """
@@ -95,9 +95,9 @@ class DataPipeline:
         # Короткая статистика по сменам
         counts = self.shift_candidates["shift"].value_counts()
         total = int(counts.sum())
-        print(f"Кандидаты на работу в неделю {target_week}: всего {total}")
-        for s in ["day", "evening", "night"]:
-            print(f"  {s}: {int(counts.get(s, 0))}")
+        # print(f"Кандидаты на работу в неделю {target_week}: всего {total}")
+        # for s in ["day", "evening", "night"]:
+        # print(f"  {s}: {int(counts.get(s, 0))}")
 
     def _create_shift_slots(self, shif_name, target_week):
         """
@@ -242,9 +242,9 @@ class AssignmentEngine:
         for round_idx, (mode, shift_name) in enumerate(default_rounds[1:], start=2):
             if free_positions.empty:
                 break
-            print(
-                f"Остались свободные позиции после тура {round_idx - 1}: {len(free_positions)}"
-            )
+            # print(
+            #     f"Остались свободные позиции после тура {round_idx - 1}: {len(free_positions)}"
+            # )
             fill_positions = self._fill_positions(
                 free_positions,
                 assigned_shift,
@@ -290,7 +290,7 @@ class AssignmentEngine:
         shift_equipment.loc[mask, "worker_id"] = None
         assigned_shift -= set(freed)
 
-        print(f"Расформированы бригады: {destaff}")
+        # print(f"Расформированы бригады: {destaff}")
         return shift_equipment, assigned_shift
 
     def _staff_team(
