@@ -153,6 +153,7 @@ class AssignmentEngine:
         self.assigned_day = set()
         self.assigned_evening = set()
         self.assigned_night = set()
+        self.all_shifts = None
 
     def _find_candidates(self, assigned_shift, mode, profession, min_rank, shift_name):
         """
@@ -390,13 +391,21 @@ class SchedulerReport:
         shift_equipment_day,
         shift_equipment_evening,
         workers,
+        shift_candidates,
+        global_assigned_set,
     ):
         self.shift_equipment_night = shift_equipment_night
         self.shift_equipment_day = shift_equipment_day
         self.shift_equipment_evening = shift_equipment_evening
         self.workers = workers
+
+        self.shift_candidates = shift_candidates
+        self.global_assigned_set = global_assigned_set
+
         self.final_assignments_df = None
         self.report = None
+
+        self.summary_lines = []
 
     def _summary_team(self, shift_equipment):
         summary = shift_equipment.groupby(
@@ -413,7 +422,7 @@ class SchedulerReport:
         Собирает все смены в один DataFrame и добавляет имена.
         """
         # Собираем все смены в один график night, day, evening
-        all_shifts = pd.concat(
+        self.all_shifts = pd.concat(
             [
                 self.shift_equipment_night,
                 self.shift_equipment_day,
@@ -422,14 +431,14 @@ class SchedulerReport:
             ignore_index=True,
         )
         # Добавляем персональные данные работникам
-        all_shifts = all_shifts.merge(
+        self.all_shifts = self.all_shifts.merge(
             self.workers[["worker_id", "name"]],
             on="worker_id",
             how="left",
         )
 
         # Удаляем пустые позиции
-        assigned_rows = all_shifts[all_shifts["worker_id"].notna()].copy()
+        assigned_rows = self.all_shifts[self.all_shifts["worker_id"].notna()].copy()
         # Сортируем по смена, машина, позиция
         assigned_rows = assigned_rows.sort_values(
             by=["shift", "machine_id", "position"],
@@ -468,3 +477,75 @@ class SchedulerReport:
         )
 
         self.report = self._summary_team(all_shifts)
+
+    def generate_text_summary(self, target_week):
+        """
+        Генерирует текстовый отчет (список строк) для QListView.
+        ПРИМЕЧАНИЕ: Должен вызываться ПОСЛЕ get_brigade_summary()
+        """
+        self.summary_lines = []
+
+        if self.report is None:
+            self.summary_lines.append(
+                "Ошибка: Сводка по бригадам (self.report) не создана."
+            )
+            self.summary_lines.append(
+                "Вызовите get_brigade_summary() перед этим методом."
+            )
+            return
+
+        try:
+            # --- Блок 1: Работники ---
+            total_available = len(self.shift_candidates)
+            total_assigned = len(self.global_assigned_set)
+            total_unassigned = total_available - total_assigned
+
+            self.summary_lines.append("--- РАБОТНИКИ ---")
+            self.summary_lines.append(f"Целевая неделя: {target_week}")
+            self.summary_lines.append(f"Всего доступно: {total_available}")
+            self.summary_lines.append(f"Назначено на смены: {total_assigned}")
+            self.summary_lines.append(f"Остались без смены: {total_unassigned}")
+            self.summary_lines.append("")  # Пустая строка
+
+            # --- Блок 2: Позиции (Слоты) ---
+            # self.report - это DataFrame, созданный в get_brigade_summary()
+            total_required = self.report["required"].sum()
+            total_filled = self.report["assigned"].sum()
+            total_empty = total_required - total_filled
+
+            self.summary_lines.append("--- ПОЗИЦИИ (СЛОТЫ) ---")
+            self.summary_lines.append(f"Всего требуется позиций: {int(total_required)}")
+            self.summary_lines.append(f"Заполнено позиций: {int(total_filled)}")
+            self.summary_lines.append(f"Осталось вакантных: {int(total_empty)}")
+            self.summary_lines.append("")
+
+            # --- Блок 3: Проблемные бригады ---
+            self.summary_lines.append("--- !!! ПРОБЛЕМНЫЕ БРИГАДЫ ---")
+
+            # Находим неполные бригады
+            incomplete_df = self.report[
+                (self.report["assigned"] < self.report["required"])
+                & (self.report["assigned"] > 0)
+            ]
+            # Находим пустые бригады
+            empty_df = self.report[self.report["assigned"] == 0]
+            # Находим полные бригады
+            full_df = self.report[self.report["assigned"] == self.report["required"]]
+
+            self.summary_lines.append(f"Всего бригад в плане: {len(self.report)}")
+            self.summary_lines.append(f"Укомплектовано (N/N): {len(full_df)}")
+            self.summary_lines.append(f"Неукомплектовано (M/N): {len(incomplete_df)}")
+            self.summary_lines.append(f"Не запущено (0/N): {len(empty_df)}")
+
+            if not incomplete_df.empty:
+                self.summary_lines.append("")
+                self.summary_lines.append("Список неполных (Назн/Треб):")
+                # Сортируем по самому большому недобору
+                incomplete_df = incomplete_df.sort_values(by="assigned")
+                for _, row in incomplete_df.iterrows():
+                    self.summary_lines.append(
+                        f"  - {row['machine_id']}: {int(row['assigned'])} из {int(row['required'])}"
+                    )
+
+        except Exception as e:
+            self.summary_lines = ["Ошибка при генерации отчета:", str(e)]

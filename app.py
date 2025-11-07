@@ -6,7 +6,7 @@ import pandas as pd
 # 1. ИМПОРТЫ QT (Используем PyQt5)
 # -----------------------------------------------------------------
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QTableView
-from PyQt5.QtCore import QAbstractTableModel, Qt, QDate
+from PyQt5.QtCore import QAbstractTableModel, Qt, QDate, QStringListModel
 
 # from PyQt5 import QtWidgets, QtCore
 # -----------------------------------------------------------------
@@ -151,15 +151,20 @@ class AppWindow(QMainWindow, Ui_MainWindow):
                 engine.shift_equipment_evening,
                 engine.shift_equipment_night,
                 self.workers_df,
+                pipeline.shift_candidates,  # DF всех кандидатов
+                engine.global_assigned,  # set() всех назначенных
             )
 
             scheduler_report.get_final_assignments()
             scheduler_report.get_brigade_summary()
 
+            # Генерируем текстовый отчет
+            scheduler_report.generate_text_summary(target_week)
+
             self.final_assignments_df = scheduler_report.final_assignments_df
 
             # Cоздаем модель таблицы
-            assignments_Tabl_all = PandasModel(self.final_assignments_df)
+            assignments_Tabl_all = PandasModel(scheduler_report.all_shifts)
             assignments_Tabl_night = PandasModel(
                 self.final_assignments_df[self.final_assignments_df["shift"] == "night"]
             )
@@ -177,6 +182,8 @@ class AppWindow(QMainWindow, Ui_MainWindow):
             self.results_table_night.setModel(assignments_Tabl_night)
             self.results_table_day.setModel(assignments_Tabl_day)
             self.results_table_evening.setModel(assignments_Tabl_evening)
+            summary_model = QStringListModel(scheduler_report.summary_lines)
+            self.summary_list.setModel(summary_model)
 
             # 2. Меняем размер колонок
             self.results_table.resizeColumnsToContents()
