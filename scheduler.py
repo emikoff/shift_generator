@@ -48,7 +48,7 @@ class DataPipeline:
         # --- Блок 2: Подготовка self.plan
         # Преобразуем в длинный формат
         plan_long = self.plan.melt(
-            id_vars="machine_id",
+            id_vars=["machine_id", "week"],
             value_vars=["night", "day", "evening"],
             var_name="shift",
             value_name="works",
@@ -106,8 +106,8 @@ class DataPipeline:
         Возвращает: shift_slots пустые слоты потребности в рабочих
         """
         # Добавляем 'week' к self.plan_long
-        plan_for_week = self.plan_long.copy()
-        plan_for_week["week"] = target_week
+        plan_for_week = self.plan_long[self.plan_long["week"] == target_week].copy()
+        # plan_for_week["week"] = target_week
 
         shift_slots = plan_for_week[plan_for_week["shift"] == shif_name][
             ["week", "shift", "machine_id", "machine_type"]
@@ -154,6 +154,7 @@ class AssignmentEngine:
         self.assigned_evening = set()
         self.assigned_night = set()
         self.all_shifts = None
+        self.no_position = None
 
     def _find_candidates(self, assigned_shift, mode, profession, min_rank, shift_name):
         """
@@ -382,6 +383,11 @@ class AssignmentEngine:
             shift_name="night",
         )
         self.global_assigned.update(self.assigned_night)
+
+        self.no_position = self.shift_candidates[
+            ~self.shift_candidates["worker_id"].isin(self.global_assigned)
+        ]
+        print(self.no_position)
 
 
 class SchedulerReport:

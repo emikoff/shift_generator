@@ -177,11 +177,15 @@ class AppWindow(QMainWindow, Ui_MainWindow):
                 ]
             )
 
+            col = ["worker_id", "name", "primary_profession", "all_professions"]
+            assignments_Tabl_no_position = PandasModel(engine.no_position[col])
+
             # 1. Устанавливаем модель в таблицу
             self.results_table.setModel(assignments_Tabl_all)
             self.results_table_night.setModel(assignments_Tabl_night)
             self.results_table_day.setModel(assignments_Tabl_day)
             self.results_table_evening.setModel(assignments_Tabl_evening)
+            self.results_table_no_position.setModel(assignments_Tabl_no_position)
             summary_model = QStringListModel(scheduler_report.summary_lines)
             self.summary_list.setModel(summary_model)
 
