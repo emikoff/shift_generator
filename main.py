@@ -1,19 +1,19 @@
+"""PyQt5 desktop front-end for the shift scheduler toolchain."""
+
 # pyuic5 ui_main_window.ui -o ui_main_window.py
 import sys
 import os
 import pandas as pd
-from datetime import date, datetime, timedelta
 
 # -----------------------------------------------------------------
 # 1. ИМПОРТЫ QT (Используем PyQt5)
 # -----------------------------------------------------------------
-from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QTableView
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox
 from PyQt5.QtCore import QAbstractTableModel, Qt, QDate, QStringListModel
 
 # Импорт для темной темы
 from PyQt5.QtGui import QPalette, QColor
 
-# from PyQt5 import QtWidgets, QtCore
 # -----------------------------------------------------------------
 # 2. ИМПОРТЫ ТВОЕЙ ЛОГИКИ
 # -----------------------------------------------------------------
@@ -31,16 +31,20 @@ class PandasModel(QAbstractTableModel):
     """Класс-модель для интеграции Pandas DataFrame с QTableView."""
 
     def __init__(self, data):
+        """Сохраняет DataFrame, который будем отображать в Qt."""
         super().__init__()
         self._data = data
 
     def rowCount(self, parent=None):
+        """Возвращает количество строк исходного DataFrame."""
         return self._data.shape[0]
 
     def columnCount(self, parent=None):
+        """Возвращает количество колонок исходного DataFrame."""
         return self._data.shape[1]
 
     def data(self, index, role=Qt.DisplayRole):
+        """Форматирует ячейку в строку для отображения в таблице."""
         if not index.isValid():
             return None
         if role == Qt.DisplayRole:
@@ -48,6 +52,7 @@ class PandasModel(QAbstractTableModel):
         return None
 
     def headerData(self, section, orientation, role=Qt.DisplayRole):
+        """Отдаёт заголовки столбцов/строк из исходного DataFrame."""
         if role == Qt.DisplayRole:
             if orientation == Qt.Horizontal:
                 return str(self._data.columns[section])
@@ -56,11 +61,11 @@ class PandasModel(QAbstractTableModel):
         return None
 
 
-# -----------------------------------------------------------------
-# 4. ГЛАВНЫЙ КЛАСС ПРИЛОЖЕНИЯ (ТВОЯ РАБОТА)
-# -----------------------------------------------------------------
 class AppWindow(QMainWindow, Ui_MainWindow):
+    """Главное окно приложения: загружает данные и управляет GUI."""
+
     def __init__(self):
+        """Подготавливает UI, дату по умолчанию и исходные DataFrame."""
         super().__init__()
 
         self.setupUi(self)
@@ -93,47 +98,38 @@ class AppWindow(QMainWindow, Ui_MainWindow):
 
         self.final_assignments_df = None
         self.problem_brigades = None
-        # self.target_week = None
-        # self.shift_candidates = None
-        # self.slots_day = None
-        # self.slots_evening = None
-        # self.slots_night = None
-        # self.shift_equipment_day = None
-        # self.shift_equipment_evening = None
-        # self.shift_equipment_night = None
+        self.scheduler_report = None
+        self._table_models = {}
+        self.summary_model = None
 
         # Подключение обработчиков событий для кнопок
-        # Кнопка запуска генератора
         self.generate_button.clicked.connect(self.run_full_generation)
-        # Кнопка сохранить
         self.save_button.clicked.connect(self.save_results_to_csv)
-        # Показать список работников
         self.view_workers_button.clicked.connect(self.view_workers)
-        # Показать список оборудования
         self.view_equipment_button.clicked.connect(self.view_equipment)
-        # Показать Исторический график
         self.view_history_button.clicked.connect(self.view_history)
 
         # Заглушки
         self.pre_assign_button.clicked.connect(self.show_stub_message)
         self.edit_button.clicked.connect(self.show_stub_message)
 
-        # --- НАЧНИ ПИСАТЬ ЗДЕСЬ ---
-        # Что нужно сделать в первую очередь, чтобы наш
-        # скомпилированный UI (Ui_MainWindow) появился на экране?
-
-    # --- Здесь будем писать наши методы-обработчики ---
+    def _display_dataframe(self, table_widget, dataframe):
+        """Создает модель и привязывает DataFrame к QTableView."""
+        model = PandasModel(dataframe)
+        table_widget.setModel(model)
+        key = table_widget.objectName() or str(id(table_widget))
+        self._table_models[key] = model
+        table_widget.resizeColumnsToContents()
+        return model
 
     def run_full_generation(self):
-        """Запускается по нажатию 'generate_button'."""
-        # 1. Получаем полную дату (как объект QDate)
+        """Запускает полный цикл генерации расписания."""
         selected_date = self.week_date_edit.date()
-        # 2. Извлекаем из нее номер недели .weekNumber() возвращает (неделя, год)
         (target_week, _) = selected_date.weekNumber()
-        # print(target_week)
 
         if target_week > 0:
-            QMessageBox.information(self, "Генерация", "Генерация запущениа")
+            QMessageBox.information(self, "Генерация", "Генерация запущена")
+            # Pipeline использует только идентификаторы и смену
             required_cols = ["worker_id", "week", "shift"]
             pipeline = DataPipeline(
                 self.workers_df,
@@ -168,49 +164,41 @@ class AppWindow(QMainWindow, Ui_MainWindow):
 
             # Генерируем текстовый отчет
             scheduler_report.generate_text_summary(target_week)
+            self.scheduler_report = scheduler_report
 
             self.final_assignments_df = scheduler_report.final_assignments_df
             self.problem_brigades = scheduler_report.problem_brigades()
 
             # Cоздаем модель таблицы
-            assignments_Tabl_all = PandasModel(scheduler_report.all_shifts)
-            assignments_Tabl_night = PandasModel(
+            self._display_dataframe(self.results_table, scheduler_report.all_shifts)
+            self._display_dataframe(
+                self.results_table_night,
                 scheduler_report.all_shifts[
                     scheduler_report.all_shifts["shift"] == "night"
-                ]
+                ],
             )
-            assignments_Tabl_day = PandasModel(
+            self._display_dataframe(
+                self.results_table_day,
                 scheduler_report.all_shifts[
                     scheduler_report.all_shifts["shift"] == "day"
-                ]
+                ],
             )
-            assignments_Tabl_evening = PandasModel(
+            self._display_dataframe(
+                self.results_table_evening,
                 scheduler_report.all_shifts[
                     scheduler_report.all_shifts["shift"] == "evening"
-                ]
+                ],
             )
 
             col = ["worker_id", "name", "primary_profession", "all_professions"]
-            assignments_Tabl_no_position = PandasModel(engine.no_position[col])
-
-            assignments_Tabl_problem_brigades = PandasModel(self.problem_brigades)
-
-            # 1. Устанавливаем модель в таблицу
-            self.results_table.setModel(assignments_Tabl_all)
-            self.results_table_night.setModel(assignments_Tabl_night)
-            self.results_table_day.setModel(assignments_Tabl_day)
-            self.results_table_evening.setModel(assignments_Tabl_evening)
-            self.results_table_no_position.setModel(assignments_Tabl_no_position)
-            self.problem_brigades_table.setModel(assignments_Tabl_problem_brigades)
+            self._display_dataframe(
+                self.results_table_no_position, engine.no_position[col]
+            )
+            self._display_dataframe(self.problem_brigades_table, self.problem_brigades)
 
             summary_model = QStringListModel(scheduler_report.summary_lines)
             self.summary_list.setModel(summary_model)
-
-            # 2. Меняем размер колонок
-            self.results_table.resizeColumnsToContents()
-            self.results_table_night.resizeColumnsToContents()
-            self.results_table_day.resizeColumnsToContents()
-            self.results_table_evening.resizeColumnsToContents()
+            self.summary_model = summary_model
 
             QMessageBox.information(self, "Успех", "Генерация выполнена")
 
@@ -229,36 +217,15 @@ class AppWindow(QMainWindow, Ui_MainWindow):
 
     def view_workers(self):
         """Показывает работников."""
-        # Cоздаем модель
-        workers_Tabl = PandasModel(self.workers_df)
-
-        # 1. Устанавливаем модель в таблицу
-        self.data_view_table.setModel(workers_Tabl)
-
-        # 2. Меняем размер колонок
-        self.data_view_table.resizeColumnsToContents()
+        self._display_dataframe(self.data_view_table, self.workers_df)
 
     def view_equipment(self):
         """Показывает оборудование."""
-        # Cоздаем модель
-        equipment_Tabl = PandasModel(self.equipment_df)
-
-        # 1. Устанавливаем модель в таблицу
-        self.data_view_table.setModel(equipment_Tabl)
-
-        # 2. Меняем размер колонок
-        self.data_view_table.resizeColumnsToContents()
+        self._display_dataframe(self.data_view_table, self.equipment_df)
 
     def view_history(self):
         """Показывает историю."""
-        # Cоздаем модель
-        schedule_Tabl = PandasModel(self.schedule_df)
-
-        # 1. Устанавливаем модель в таблицу
-        self.data_view_table.setModel(schedule_Tabl)
-
-        # 2. Меняем размер колонок
-        self.data_view_table.resizeColumnsToContents()
+        self._display_dataframe(self.data_view_table, self.schedule_df)
 
     def load_saved_results(self, file_path="assignment_output_GUI.csv"):
         """Перечитывает сохранённый CSV и обновляет таблицу и отчёт."""
@@ -267,13 +234,13 @@ class AppWindow(QMainWindow, Ui_MainWindow):
             self.final_assignments_df = df
 
             # Обновляем текстовый отчёт
-            if hasattr(self, "scheduler_report"):
+            if isinstance(self.scheduler_report, SchedulerReport):
                 current_week = df["week"].max()
                 self.scheduler_report.final_assignments_df = df
                 self.scheduler_report.generate_text_summary(current_week)
-                self.summary_listview.setModel(
-                    QStringListModel(self.scheduler_report.summary_lines)
-                )
+                summary_model = QStringListModel(self.scheduler_report.summary_lines)
+                self.summary_list.setModel(summary_model)
+                self.summary_model = summary_model
 
         except Exception as e:
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить данные:\n{e}")
@@ -312,7 +279,7 @@ class AppWindow(QMainWindow, Ui_MainWindow):
                 # Сохраняем итоговый CSV
                 df_to_save.to_csv(file_path, index=False, encoding="utf-8-sig")
 
-                # ✅ После сохранения — обновляем буфер
+                # После сохранения — обновляем буфер
                 self.load_saved_results(file_path)
 
                 QMessageBox.information(
@@ -328,6 +295,7 @@ class AppWindow(QMainWindow, Ui_MainWindow):
 
 
 def set_dark_palette(app):
+    """Включает простую темную тему для всего приложения."""
     palette = QPalette()
     palette.setColor(QPalette.Window, QColor(43, 43, 43))
     palette.setColor(QPalette.WindowText, QColor(220, 220, 220))

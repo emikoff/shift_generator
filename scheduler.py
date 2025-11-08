@@ -1,14 +1,20 @@
+"""Core data preparation, assignment, and reporting helpers for the scheduler GUI."""
+
 import pandas as pd
 
 
 class DataPipeline:
-    """_summary_
-
-    Returns:
-        _type_: _description_
-    """
+    """Готовит рабочие DataFrame для целевой недели."""
 
     def __init__(self, workers, equipment, schedule, requirements, plan):
+        """
+        Args:
+            workers: DataFrame с персоналом и их навыками.
+            equipment: DataFrame с оборудованием и типами машин.
+            schedule: Исторический график (минимум worker_id/week/shift).
+            requirements: Требования по минимальному рангу и численности.
+            plan: План запуска машин по сменам.
+        """
         # Загрузка датафреймов
         self.workers = workers
         self.equipment = equipment
@@ -28,7 +34,6 @@ class DataPipeline:
         # - self.plan_long -> self.plan_long
         #   1 строка = machine_id, shift, machine_type, week
         self._prepare_base_data()
-        # print("DataPipeline: Базовые данные подготовлены.")
 
     def _prepare_base_data(self):
         """
@@ -67,9 +72,6 @@ class DataPipeline:
 
         self.plan_long = plan_long
 
-        # Позже удалить
-        # print("prepare_data() завершен.")
-
     def _build_shift_rotation(self, target_week) -> pd.DataFrame:
         """
         Формирует общий датафрейм кандидатов на target_week для всех смен сразу,
@@ -91,25 +93,13 @@ class DataPipeline:
         # Объединим с данными по работникам
         self.shift_candidates = prev.merge(self.workers, on="worker_id", how="left")
 
-        # Позже удалить
-        # Короткая статистика по сменам
-        counts = self.shift_candidates["shift"].value_counts()
-        total = int(counts.sum())
-        # print(f"Кандидаты на работу в неделю {target_week}: всего {total}")
-        # for s in ["day", "evening", "night"]:
-        # print(f"  {s}: {int(counts.get(s, 0))}")
-
-    def _create_shift_slots(self, shif_name, target_week):
+    def _create_shift_slots(self, shift_name, target_week):
         """
-        Вспомогательный метод. Создает пустые слоты для одной смены
-        на основе self.plan_long и self.requirements.
-        Возвращает: shift_slots пустые слоты потребности в рабочих
+        Формирует слоты для одной смены на основе plan_long + requirements.
         """
-        # Добавляем 'week' к self.plan_long
         plan_for_week = self.plan_long[self.plan_long["week"] == target_week].copy()
-        # plan_for_week["week"] = target_week
 
-        shift_slots = plan_for_week[plan_for_week["shift"] == shif_name][
+        shift_slots = plan_for_week[plan_for_week["shift"] == shift_name][
             ["week", "shift", "machine_id", "machine_type"]
         ]
 
@@ -121,16 +111,17 @@ class DataPipeline:
         return shift_slots
 
     def run(self, target_week):
-        # Получаем кандидатов для работы на целевую неделю
+        """Вычисляет кандидатов и слоты под целевую неделю."""
         self._build_shift_rotation(target_week)
 
-        # Создаем пустые слоты (потребности)
         self.shift_equipment_day = self._create_shift_slots("day", target_week)
         self.shift_equipment_evening = self._create_shift_slots("evening", target_week)
         self.shift_equipment_night = self._create_shift_slots("night", target_week)
 
 
 class AssignmentEngine:
+    """Ищет исполнителей по слотам и фиксирует глобальные назначения."""
+
     def __init__(
         self,
         shift_candidates,
@@ -161,7 +152,6 @@ class AssignmentEngine:
         Ядро алгоритма: ищет подходящих кандидатов на позицию.
         """
         assigned_shift = set(assigned_shift)
-        # self.global_assigned = set(global_assigned or set())
         blocked_ids = self.global_assigned - assigned_shift
 
         base_mask = (
@@ -200,6 +190,7 @@ class AssignmentEngine:
         mode="ferst",
         shift_name="day",
     ):
+        """Пытается закрыть слоты для конкретной смены и фиксирует свободные позиции."""
         free_positions = []
         updated = shift_equipment.copy()
 
@@ -232,6 +223,7 @@ class AssignmentEngine:
     def _run_assignment_for_shift(
         self, shift_equipment, assigned_shift, default_rounds
     ):
+        """Запускает серию туров (_fill_positions) согласно конфигурации default_rounds."""
 
         fill_positions = self._fill_positions(
             shift_equipment,
@@ -244,9 +236,6 @@ class AssignmentEngine:
         for round_idx, (mode, shift_name) in enumerate(default_rounds[1:], start=2):
             if free_positions.empty:
                 break
-            # print(
-            #     f"Остались свободные позиции после тура {round_idx - 1}: {len(free_positions)}"
-            # )
             fill_positions = self._fill_positions(
                 free_positions,
                 assigned_shift,
@@ -259,6 +248,7 @@ class AssignmentEngine:
         return updated, assigned_shift
 
     def _summary_team(self, shift_equipment):
+        """Считает требуемые и назначенные позиции для каждой машины."""
         summary = shift_equipment.groupby(
             ["machine_id", "machine_type"], as_index=False
         ).agg(
@@ -275,6 +265,7 @@ class AssignmentEngine:
         return incomplete
 
     def _decomlate_team(self, shift_equipment, assigned_shift):
+        """Расформировывает бригады, где назначено меньше половины от требуемого."""
         incomplete = self._incomplete_team(shift_equipment)
         destaff = incomplete[incomplete["required"] / 2 >= incomplete["assigned"]][
             "machine_id"
@@ -292,7 +283,6 @@ class AssignmentEngine:
         shift_equipment.loc[mask, "worker_id"] = None
         assigned_shift -= set(freed)
 
-        # print(f"Расформированы бригады: {destaff}")
         return shift_equipment, assigned_shift
 
     def _staff_team(
@@ -387,10 +377,11 @@ class AssignmentEngine:
         self.no_position = self.shift_candidates[
             ~self.shift_candidates["worker_id"].isin(self.global_assigned)
         ]
-        # print(self.no_position)
 
 
 class SchedulerReport:
+    """Формирует итоговые таблицы и текстовые отчёты по расписанию."""
+
     def __init__(
         self,
         shift_equipment_night,
@@ -401,6 +392,7 @@ class SchedulerReport:
         global_assigned_set,
         plan_long,
     ):
+        """Сохраняет ссылки на результаты движка назначения и справочники."""
         self.shift_equipment_night = shift_equipment_night
         self.shift_equipment_day = shift_equipment_day
         self.shift_equipment_evening = shift_equipment_evening
@@ -414,6 +406,17 @@ class SchedulerReport:
         self.report = None
 
         self.summary_lines = []
+
+    def _combined_shifts(self):
+        """Возвращает DataFrame со всеми сменами."""
+        return pd.concat(
+            [
+                self.shift_equipment_night,
+                self.shift_equipment_day,
+                self.shift_equipment_evening,
+            ],
+            ignore_index=True,
+        )
 
     def _summary_team(self, df, group_cols=None):
         """
@@ -461,14 +464,7 @@ class SchedulerReport:
         Собирает все смены в один DataFrame и добавляет имена.
         """
         # Собираем все смены в один график night, day, evening
-        self.all_shifts = pd.concat(
-            [
-                self.shift_equipment_night,
-                self.shift_equipment_day,
-                self.shift_equipment_evening,
-            ],
-            ignore_index=True,
-        )
+        self.all_shifts = self._combined_shifts()
         # Добавляем персональные данные работникам
         self.all_shifts = self.all_shifts.merge(
             self.workers[["worker_id", "name"]],
@@ -491,14 +487,7 @@ class SchedulerReport:
         """
         Возвращает DataFrame со всеми незаполненными позициями.
         """
-        all_shifts = pd.concat(
-            [
-                self.shift_equipment_night,
-                self.shift_equipment_day,
-                self.shift_equipment_evening,
-            ],
-            ignore_index=True,
-        )
+        all_shifts = self._combined_shifts()
         self.final_assignments_df = all_shifts[all_shifts["worker_id"].isna()]
 
     def get_brigade_summary(self):
@@ -506,19 +495,9 @@ class SchedulerReport:
         Возвращает сводку по всем бригадам.
         """
 
-        all_shifts = pd.concat(
-            [
-                self.shift_equipment_night,
-                self.shift_equipment_day,
-                self.shift_equipment_evening,
-            ],
-            ignore_index=True,
-        )
-
         self.report = self._summary_team(
-            all_shifts, ["week", "shift", "machine_id", "machine_type"]
+            self._combined_shifts(), ["week", "shift", "machine_id", "machine_type"]
         )
-        # print(self.report)
 
     def generate_text_summary(self, target_week):
         """
@@ -634,6 +613,7 @@ class SchedulerReport:
             self.summary_lines = ["Ошибка при генерации отчета:", str(e)]
 
     def problem_brigades(self):
+        """Возвращает объединённый список неполных и пустых бригад."""
         cols = [
             "week",
             "shift",
