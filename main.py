@@ -8,6 +8,9 @@ import pandas as pd
 from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox, QTableView
 from PyQt5.QtCore import QAbstractTableModel, Qt, QDate, QStringListModel
 
+# Импорт для темной темы
+from PyQt5.QtGui import QPalette, QColor
+
 # from PyQt5 import QtWidgets, QtCore
 # -----------------------------------------------------------------
 # 2. ИМПОРТЫ ТВОЕЙ ЛОГИКИ
@@ -87,6 +90,7 @@ class AppWindow(QMainWindow, Ui_MainWindow):
             )
 
         self.final_assignments_df = None
+        self.problem_brigades = None
         # self.target_week = None
         # self.shift_candidates = None
         # self.slots_day = None
@@ -162,6 +166,7 @@ class AppWindow(QMainWindow, Ui_MainWindow):
             scheduler_report.generate_text_summary(target_week)
 
             self.final_assignments_df = scheduler_report.final_assignments_df
+            self.problem_brigades = scheduler_report.problem_brigades()
 
             # Cоздаем модель таблицы
             assignments_Tabl_all = PandasModel(scheduler_report.all_shifts)
@@ -180,12 +185,16 @@ class AppWindow(QMainWindow, Ui_MainWindow):
             col = ["worker_id", "name", "primary_profession", "all_professions"]
             assignments_Tabl_no_position = PandasModel(engine.no_position[col])
 
+            assignments_Tabl_problem_brigades = PandasModel(self.problem_brigades)
+
             # 1. Устанавливаем модель в таблицу
             self.results_table.setModel(assignments_Tabl_all)
             self.results_table_night.setModel(assignments_Tabl_night)
             self.results_table_day.setModel(assignments_Tabl_day)
             self.results_table_evening.setModel(assignments_Tabl_evening)
             self.results_table_no_position.setModel(assignments_Tabl_no_position)
+            self.problem_brigades_table.setModel(assignments_Tabl_problem_brigades)
+
             summary_model = QStringListModel(scheduler_report.summary_lines)
             self.summary_list.setModel(summary_model)
 
@@ -259,11 +268,30 @@ class AppWindow(QMainWindow, Ui_MainWindow):
             QMessageBox.critical(self, "Ошибка", "Сначала сгенерируйте график!")
 
 
+def set_dark_palette(app):
+    palette = QPalette()
+    palette.setColor(QPalette.Window, QColor(43, 43, 43))
+    palette.setColor(QPalette.WindowText, QColor(220, 220, 220))
+    palette.setColor(QPalette.Base, QColor(30, 30, 30))
+    palette.setColor(QPalette.AlternateBase, QColor(43, 43, 43))
+    palette.setColor(QPalette.ToolTipBase, QColor(255, 255, 220))
+    palette.setColor(QPalette.ToolTipText, QColor(0, 0, 0))
+    palette.setColor(QPalette.Text, QColor(220, 220, 220))
+    palette.setColor(QPalette.Button, QColor(43, 43, 43))
+    palette.setColor(QPalette.ButtonText, QColor(220, 220, 220))
+    palette.setColor(QPalette.BrightText, QColor(255, 0, 0))
+    palette.setColor(QPalette.Link, QColor(42, 130, 218))
+    palette.setColor(QPalette.Highlight, QColor(80, 80, 80))
+    palette.setColor(QPalette.HighlightedText, QColor(90, 120, 200))
+    app.setPalette(palette)
+
+
 # -----------------------------------------------------------------
 # 5. ЗАПУСК ПРИЛОЖЕНИЯ (Этот код не меняй)
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    set_dark_palette(app)
     window = AppWindow()
     window.show()
     sys.exit(app.exec_())

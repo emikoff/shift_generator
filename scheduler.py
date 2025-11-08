@@ -387,7 +387,7 @@ class AssignmentEngine:
         self.no_position = self.shift_candidates[
             ~self.shift_candidates["worker_id"].isin(self.global_assigned)
         ]
-        print(self.no_position)
+        # print(self.no_position)
 
 
 class SchedulerReport:
@@ -413,15 +413,45 @@ class SchedulerReport:
 
         self.summary_lines = []
 
-    def _summary_team(self, shift_equipment):
-        summary = shift_equipment.groupby(
-            ["machine_id", "machine_type"], as_index=False
-        ).agg(
+    def _summary_team(self, df, group_cols=None):
+        """
+        Универсальная сводка укомплектованности.
+        group_cols: список ключей группировки (по умолчанию ['machine_id','machine_type']).
+        """
+        if group_cols is None:
+            group_cols = ["machine_id", "machine_type"]
+
+        summary = df.groupby(group_cols, as_index=False).agg(
             required=("position", "count"),
             assigned=("worker_id", lambda s: s.notna().sum() - (s == "").sum()),
         )
-
         return summary
+
+    def _incomplete_brigades(self):
+        """Неполные (k/N, k>0). Источник: self.all_shifts (должен быть собран)."""
+        rep = self._summary_team(
+            self.all_shifts, ["week", "shift", "machine_id", "machine_type"]
+        )
+        df = rep[(rep["assigned"] > 0) & (rep["assigned"] < rep["required"])].copy()
+        df["missing"] = df["required"] - df["assigned"]
+        df["status"] = "incomplete"
+        return df.sort_values(
+            ["week", "shift", "missing", "machine_id"],
+            ascending=[True, True, False, True],
+        ).reset_index(drop=True)
+
+    def _empty_brigades(self):
+        """Пустые (0/N). Источник: self.all_shifts."""
+        rep = self._summary_team(
+            self.all_shifts, ["week", "shift", "machine_id", "machine_type"]
+        )
+        df = rep[(rep["assigned"] == 0) & (rep["required"] > 0)].copy()
+        df["missing"] = df["required"]
+        df["status"] = "empty"
+        return df.sort_values(
+            ["week", "shift", "required", "machine_id"],
+            ascending=[True, True, False, True],
+        ).reset_index(drop=True)
 
     def get_final_assignments(self):
         """
@@ -555,3 +585,25 @@ class SchedulerReport:
 
         except Exception as e:
             self.summary_lines = ["Ошибка при генерации отчета:", str(e)]
+
+    def problem_brigades(self):
+        cols = [
+            "week",
+            "shift",
+            "machine_id",
+            "machine_type",
+            "assigned",
+            "required",
+            "missing",
+            "status",
+        ]
+        inc = self._incomplete_brigades()[cols]
+        emp = self._empty_brigades()[cols]
+        return (
+            pd.concat([inc, emp], ignore_index=True)
+            .sort_values(
+                ["week", "shift", "status", "missing", "machine_id"],
+                ascending=[True, True, True, False, True],
+            )
+            .reset_index(drop=True)
+        )

@@ -104,6 +104,14 @@ class Ui_MainWindow(object):
         self.results_table_no_position.setObjectName("results_table_no_position")
         self.verticalLayout_13.addWidget(self.results_table_no_position)
         self.tabWidget_2.addTab(self.tab_4, "")
+        self.tab_5 = QtWidgets.QWidget()
+        self.tab_5.setObjectName("tab_5")
+        self.horizontalLayout_10 = QtWidgets.QHBoxLayout(self.tab_5)
+        self.horizontalLayout_10.setObjectName("horizontalLayout_10")
+        self.problem_brigades_table = QtWidgets.QTableView(self.tab_5)
+        self.problem_brigades_table.setObjectName("problem_brigades_table")
+        self.horizontalLayout_10.addWidget(self.problem_brigades_table)
+        self.tabWidget_2.addTab(self.tab_5, "")
         self.verticalLayout_5.addWidget(self.tabWidget_2)
         self.tabWidget.addTab(self.tab, "")
         self.tab_2 = QtWidgets.QWidget()
@@ -177,7 +185,7 @@ class Ui_MainWindow(object):
 
         self.retranslateUi(MainWindow)
         self.tabWidget.setCurrentIndex(0)
-        self.tabWidget_2.setCurrentIndex(0)
+        self.tabWidget_2.setCurrentIndex(5)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
@@ -191,6 +199,7 @@ class Ui_MainWindow(object):
         self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab_10), _translate("MainWindow", "День"))
         self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab_11), _translate("MainWindow", "Вечер"))
         self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab_4), _translate("MainWindow", "Без позиции"))
+        self.tabWidget_2.setTabText(self.tabWidget_2.indexOf(self.tab_5), _translate("MainWindow", "Проблемные бригады"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("MainWindow", "Генерация"))
         self.label_2.setText(_translate("MainWindow", "Ручное назначение перед генерацией"))
         self.label_3.setText(_translate("MainWindow", "Редактирование сгенерированного графика"))
