@@ -1,6 +1,8 @@
 # pyuic5 ui_main_window.ui -o ui_main_window.py
 import sys
+import os
 import pandas as pd
+from datetime import date, datetime, timedelta
 
 # -----------------------------------------------------------------
 # 1. ИМПОРТЫ QT (Используем PyQt5)
@@ -81,7 +83,7 @@ class AppWindow(QMainWindow, Ui_MainWindow):
         try:
             self.workers_df = pd.read_csv("workers.csv")
             self.equipment_df = pd.read_csv("equipment.csv")
-            self.schedule_df = pd.read_csv("schedule_template.csv")
+            self.schedule_df = pd.read_csv("assignment_output_GUI.csv")
             self.requirements_df = pd.read_csv("position_requirements.csv")
             self.plan_df = pd.read_csv("plan.csv")
         except FileNotFoundError as e:
@@ -128,14 +130,15 @@ class AppWindow(QMainWindow, Ui_MainWindow):
         selected_date = self.week_date_edit.date()
         # 2. Извлекаем из нее номер недели .weekNumber() возвращает (неделя, год)
         (target_week, _) = selected_date.weekNumber()
-        print(target_week)
+        # print(target_week)
 
         if target_week > 0:
             QMessageBox.information(self, "Генерация", "Генерация запущениа")
+            required_cols = ["worker_id", "week", "shift"]
             pipeline = DataPipeline(
                 self.workers_df,
                 self.equipment_df,
-                self.schedule_df,
+                self.schedule_df[required_cols],
                 self.requirements_df,
                 self.plan_df,
             )
@@ -172,14 +175,18 @@ class AppWindow(QMainWindow, Ui_MainWindow):
             # Cоздаем модель таблицы
             assignments_Tabl_all = PandasModel(scheduler_report.all_shifts)
             assignments_Tabl_night = PandasModel(
-                self.final_assignments_df[self.final_assignments_df["shift"] == "night"]
+                scheduler_report.all_shifts[
+                    scheduler_report.all_shifts["shift"] == "night"
+                ]
             )
             assignments_Tabl_day = PandasModel(
-                self.final_assignments_df[self.final_assignments_df["shift"] == "day"]
+                scheduler_report.all_shifts[
+                    scheduler_report.all_shifts["shift"] == "day"
+                ]
             )
             assignments_Tabl_evening = PandasModel(
-                self.final_assignments_df[
-                    self.final_assignments_df["shift"] == "evening"
+                scheduler_report.all_shifts[
+                    scheduler_report.all_shifts["shift"] == "evening"
                 ]
             )
 
@@ -253,20 +260,87 @@ class AppWindow(QMainWindow, Ui_MainWindow):
         # 2. Меняем размер колонок
         self.data_view_table.resizeColumnsToContents()
 
+    import os
+
     def save_results_to_csv(self):
-        """Сохраняет сгенерированный график."""
-        if self.final_assignments_df is not None:
-            try:
-                self.final_assignments_df.to_csv(
-                    "assignment_output_GUI.csv", index=False, encoding="utf-8-sig"
-                )
-                QMessageBox.information(self, "Успех", "Файл сохранен")
-            except Exception as e:
-                QMessageBox.critical(
-                    self, "Ошибка сохранения", f"Не удалось сохранить файл:\n{e}"
-                )
-        else:
+        """Сохраняет сгенерированный график (добавляет или предупреждает о перезаписи)."""
+        if self.final_assignments_df is None:
             QMessageBox.critical(self, "Ошибка", "Сначала сгенерируйте график!")
+            return
+
+        file_path = "assignment_output_GUI.csv"
+
+        # --- 1. Определяем неделю и год ---
+        current_week = int(self.final_assignments_df["week"].iloc[0])
+
+        if "year" in self.final_assignments_df.columns:
+            year = int(self.final_assignments_df["year"].iloc[0])
+        else:
+            year = datetime.now().year
+
+        # --- 2. Форматирование диапазона дат недели (Пн–Пт) ---
+        def format_week_range(week: int, year: int) -> str:
+            try:
+                monday = date.fromisocalendar(year, int(week), 1)
+                friday = monday + timedelta(days=4)
+                if monday.month == friday.month:
+                    return f"{monday.day:02d}–{friday.day:02d}.{friday.month:02d}.{friday.year}"
+                else:
+                    return (
+                        f"{monday.day:02d}.{monday.month:02d}–"
+                        f"{friday.day:02d}.{friday.month:02d}.{friday.year}"
+                    )
+            except ValueError:
+                return f"неделя {week}"
+
+        week_range_str = format_week_range(current_week, year)
+
+        try:
+            if os.path.exists(file_path):
+                existing_df = pd.read_csv(file_path, encoding="utf-8-sig")
+
+                if "week" in existing_df.columns:
+                    existing_weeks = (
+                        pd.to_numeric(existing_df["week"], errors="coerce")
+                        .fillna(-1)
+                        .astype(int)
+                    )
+
+                    if current_week in existing_weeks.unique():
+                        reply = QMessageBox.warning(
+                            self,
+                            "Предупреждение",
+                            (
+                                f"Для недели {current_week} ({week_range_str}) уже существуют данные.\n"
+                                "Они будут перезаписаны. Продолжить?"
+                            ),
+                            QMessageBox.Yes | QMessageBox.No,
+                        )
+                        if reply == QMessageBox.No:
+                            return
+
+                        existing_df = existing_df[existing_weeks != current_week]
+
+                updated_df = pd.concat(
+                    [existing_df, self.final_assignments_df], ignore_index=True
+                )
+                updated_df.to_csv(file_path, index=False, encoding="utf-8-sig")
+
+            else:
+                self.final_assignments_df.to_csv(
+                    file_path, index=False, encoding="utf-8-sig"
+                )
+
+            QMessageBox.information(
+                self,
+                "Успех",
+                f"Данные за неделю {current_week} ({week_range_str}) сохранены.",
+            )
+
+        except Exception as e:
+            QMessageBox.critical(
+                self, "Ошибка сохранения", f"Не удалось сохранить файл:\n{e}"
+            )
 
 
 def set_dark_palette(app):

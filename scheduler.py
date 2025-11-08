@@ -518,7 +518,7 @@ class SchedulerReport:
         self.report = self._summary_team(
             all_shifts, ["week", "shift", "machine_id", "machine_type"]
         )
-        print(self.report)
+        # print(self.report)
 
     def generate_text_summary(self, target_week):
         """
