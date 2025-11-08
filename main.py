@@ -260,87 +260,71 @@ class AppWindow(QMainWindow, Ui_MainWindow):
         # 2. Меняем размер колонок
         self.data_view_table.resizeColumnsToContents()
 
-    import os
+    def load_saved_results(self, file_path="assignment_output_GUI.csv"):
+        """Перечитывает сохранённый CSV и обновляет таблицу и отчёт."""
+        try:
+            df = pd.read_csv(file_path)
+            self.final_assignments_df = df
+
+            # Обновляем текстовый отчёт
+            if hasattr(self, "scheduler_report"):
+                current_week = df["week"].max()
+                self.scheduler_report.final_assignments_df = df
+                self.scheduler_report.generate_text_summary(current_week)
+                self.summary_listview.setModel(
+                    QStringListModel(self.scheduler_report.summary_lines)
+                )
+
+        except Exception as e:
+            QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить данные:\n{e}")
 
     def save_results_to_csv(self):
-        """Сохраняет сгенерированный график (добавляет или предупреждает о перезаписи)."""
-        if self.final_assignments_df is None:
-            QMessageBox.critical(self, "Ошибка", "Сначала сгенерируйте график!")
-            return
-
-        file_path = "assignment_output_GUI.csv"
-
-        # --- 1. Определяем неделю и год ---
-        current_week = int(self.final_assignments_df["week"].iloc[0])
-
-        if "year" in self.final_assignments_df.columns:
-            year = int(self.final_assignments_df["year"].iloc[0])
-        else:
-            year = datetime.now().year
-
-        # --- 2. Форматирование диапазона дат недели (Пн–Пт) ---
-        def format_week_range(week: int, year: int) -> str:
+        """Сохраняет сгенерированный график и обновляет буфер данных."""
+        if self.final_assignments_df is not None:
             try:
-                monday = date.fromisocalendar(year, int(week), 1)
-                friday = monday + timedelta(days=4)
-                if monday.month == friday.month:
-                    return f"{monday.day:02d}–{friday.day:02d}.{friday.month:02d}.{friday.year}"
-                else:
-                    return (
-                        f"{monday.day:02d}.{monday.month:02d}–"
-                        f"{friday.day:02d}.{friday.month:02d}.{friday.year}"
-                    )
-            except ValueError:
-                return f"неделя {week}"
+                file_path = "assignment_output_GUI.csv"
 
-        week_range_str = format_week_range(current_week, year)
-
-        try:
-            if os.path.exists(file_path):
-                existing_df = pd.read_csv(file_path, encoding="utf-8-sig")
-
-                if "week" in existing_df.columns:
-                    existing_weeks = (
-                        pd.to_numeric(existing_df["week"], errors="coerce")
-                        .fillna(-1)
-                        .astype(int)
-                    )
-
-                    if current_week in existing_weeks.unique():
-                        reply = QMessageBox.warning(
+                # Проверяем, есть ли уже данные за эту неделю
+                if os.path.exists(file_path):
+                    existing = pd.read_csv(file_path)
+                    current_week = self.final_assignments_df["week"].iloc[0]
+                    if current_week in existing["week"].unique():
+                        reply = QMessageBox.question(
                             self,
-                            "Предупреждение",
-                            (
-                                f"Для недели {current_week} ({week_range_str}) уже существуют данные.\n"
-                                "Они будут перезаписаны. Продолжить?"
-                            ),
+                            "Подтверждение перезаписи",
+                            f"Данные за неделю {current_week} уже есть. Перезаписать?",
                             QMessageBox.Yes | QMessageBox.No,
                         )
                         if reply == QMessageBox.No:
                             return
+                        # Удаляем старые записи этой недели перед добавлением
+                        existing = existing[existing["week"] != current_week]
+                        df_to_save = pd.concat(
+                            [existing, self.final_assignments_df], ignore_index=True
+                        )
+                    else:
+                        df_to_save = pd.concat(
+                            [existing, self.final_assignments_df], ignore_index=True
+                        )
+                else:
+                    df_to_save = self.final_assignments_df.copy()
 
-                        existing_df = existing_df[existing_weeks != current_week]
+                # Сохраняем итоговый CSV
+                df_to_save.to_csv(file_path, index=False, encoding="utf-8-sig")
 
-                updated_df = pd.concat(
-                    [existing_df, self.final_assignments_df], ignore_index=True
+                # ✅ После сохранения — обновляем буфер
+                self.load_saved_results(file_path)
+
+                QMessageBox.information(
+                    self, "Успех", "Файл сохранен и данные обновлены."
                 )
-                updated_df.to_csv(file_path, index=False, encoding="utf-8-sig")
 
-            else:
-                self.final_assignments_df.to_csv(
-                    file_path, index=False, encoding="utf-8-sig"
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Ошибка сохранения", f"Не удалось сохранить файл:\n{e}"
                 )
-
-            QMessageBox.information(
-                self,
-                "Успех",
-                f"Данные за неделю {current_week} ({week_range_str}) сохранены.",
-            )
-
-        except Exception as e:
-            QMessageBox.critical(
-                self, "Ошибка сохранения", f"Не удалось сохранить файл:\n{e}"
-            )
+        else:
+            QMessageBox.critical(self, "Ошибка", "Сначала сгенерируйте график!")
 
 
 def set_dark_palette(app):
