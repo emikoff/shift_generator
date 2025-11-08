@@ -157,6 +157,7 @@ class AppWindow(QMainWindow, Ui_MainWindow):
                 self.workers_df,
                 pipeline.shift_candidates,  # DF всех кандидатов
                 engine.global_assigned,  # set() всех назначенных
+                pipeline.plan_long,
             )
 
             scheduler_report.get_final_assignments()

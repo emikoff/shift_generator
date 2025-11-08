@@ -399,6 +399,7 @@ class SchedulerReport:
         workers,
         shift_candidates,
         global_assigned_set,
+        plan_long,
     ):
         self.shift_equipment_night = shift_equipment_night
         self.shift_equipment_day = shift_equipment_day
@@ -407,6 +408,7 @@ class SchedulerReport:
 
         self.shift_candidates = shift_candidates
         self.global_assigned_set = global_assigned_set
+        self.plan_long = plan_long
 
         self.final_assignments_df = None
         self.report = None
@@ -425,6 +427,7 @@ class SchedulerReport:
             required=("position", "count"),
             assigned=("worker_id", lambda s: s.notna().sum() - (s == "").sum()),
         )
+        # self.report = summary
         return summary
 
     def _incomplete_brigades(self):
@@ -512,7 +515,10 @@ class SchedulerReport:
             ignore_index=True,
         )
 
-        self.report = self._summary_team(all_shifts)
+        self.report = self._summary_team(
+            all_shifts, ["week", "shift", "machine_id", "machine_type"]
+        )
+        print(self.report)
 
     def generate_text_summary(self, target_week):
         """
@@ -541,34 +547,53 @@ class SchedulerReport:
             self.summary_lines.append(f"Всего доступно: {total_available}")
             self.summary_lines.append(f"Назначено на смены: {total_assigned}")
             self.summary_lines.append(f"Остались без смены: {total_unassigned}")
-            self.summary_lines.append("")  # Пустая строка
+            self.summary_lines.append("")
 
-            # --- Блок 2: Позиции (Слоты) ---
-            # self.report - это DataFrame, созданный в get_brigade_summary()
-            total_required = self.report["required"].sum()
-            total_filled = self.report["assigned"].sum()
+            # --- Блок 2: Позиции (Слоты) — считаем строго за target_week ---
+            rep = self.report
+            if "week" in rep.columns:
+                rep = rep[rep["week"] == target_week].copy()
+
+            total_required = int(rep["required"].sum())
+            total_filled = int(rep["assigned"].sum())
             total_empty = total_required - total_filled
 
             self.summary_lines.append("--- ПОЗИЦИИ (СЛОТЫ) ---")
-            self.summary_lines.append(f"Всего требуется позиций: {int(total_required)}")
-            self.summary_lines.append(f"Заполнено позиций: {int(total_filled)}")
-            self.summary_lines.append(f"Осталось вакантных: {int(total_empty)}")
+            self.summary_lines.append(f"Всего требуется позиций: {total_required}")
+            self.summary_lines.append(f"Заполнено позиций: {total_filled}")
+            self.summary_lines.append(f"Осталось вакантных: {total_empty}")
             self.summary_lines.append("")
 
             # --- Блок 3: Проблемные бригады ---
             self.summary_lines.append("--- !!! ПРОБЛЕМНЫЕ БРИГАДЫ ---")
 
-            # Находим неполные бригады
-            incomplete_df = self.report[
-                (self.report["assigned"] < self.report["required"])
-                & (self.report["assigned"] > 0)
-            ]
-            # Находим пустые бригады
-            empty_df = self.report[self.report["assigned"] == 0]
-            # Находим полные бригады
-            full_df = self.report[self.report["assigned"] == self.report["required"]]
+            # 3.1. Сколько бригад ДОЛЖНО быть по плану за неделю
+            planned_cnt = None
+            if hasattr(self, "plan_long") and isinstance(self.plan_long, pd.DataFrame):
+                pl = self.plan_long[self.plan_long["week"] == target_week].copy()
+                if "works" in pl.columns:
+                    # если столбец есть, фильтруем по нему
+                    pl = pl[pl["works"].astype(int) == 1]
+                # если столбца нет (как у тебя) — уже отфильтровано на этапе подготовки
+                planned_cnt = (
+                    pl[["week", "shift", "machine_id"]].drop_duplicates().shape[0]
+                )
+            else:
+                # запасной путь: считаем по факту слотов
+                planned_cnt = (
+                    rep[["week", "shift", "machine_id"]].drop_duplicates().shape[0]
+                )
 
-            self.summary_lines.append(f"Всего бригад в плане: {len(self.report)}")
+            # 3.2. Фактическая укомплектованность (по rep за неделю)
+            incomplete_df = rep[
+                (rep["assigned"] > 0) & (rep["assigned"] < rep["required"])
+            ]
+            empty_df = rep[rep["assigned"] == 0]
+            full_df = rep[rep["assigned"] == rep["required"]]
+
+            self.summary_lines.append(
+                f"Всего бригад в плане (week×shift×machine): {planned_cnt}"
+            )
             self.summary_lines.append(f"Укомплектовано (N/N): {len(full_df)}")
             self.summary_lines.append(f"Неукомплектовано (M/N): {len(incomplete_df)}")
             self.summary_lines.append(f"Не запущено (0/N): {len(empty_df)}")
@@ -576,11 +601,33 @@ class SchedulerReport:
             if not incomplete_df.empty:
                 self.summary_lines.append("")
                 self.summary_lines.append("Список неполных (Назн/Треб):")
-                # Сортируем по самому большому недобору
-                incomplete_df = incomplete_df.sort_values(by="assigned")
-                for _, row in incomplete_df.iterrows():
+                inc = incomplete_df.assign(
+                    missing=lambda d: d["required"] - d["assigned"]
+                ).sort_values(
+                    ["missing", "shift", "machine_id"], ascending=[False, True, True]
+                )
+                for _, row in inc.iterrows():
                     self.summary_lines.append(
-                        f"  - {row['machine_id']}: {int(row['assigned'])} из {int(row['required'])}"
+                        f"  - нед.{int(row['week']):02d} {row['shift']}: "
+                        f"{row['machine_id']} — {int(row['assigned'])} из {int(row['required'])}"
+                    )
+
+            # --- Список неназначённых (0/N) ---
+            if not empty_df.empty:
+                self.summary_lines.append("")
+                self.summary_lines.append("Список неназначённых (0/Треб):")
+                # сортируем: сперва наибольшая требуемая численность, затем смена и машина
+                emp = empty_df.sort_values(
+                    ["required", "shift", "machine_id"], ascending=[False, True, True]
+                )
+                has_week = "week" in emp.columns
+                has_shift = "shift" in emp.columns
+                for _, row in emp.iterrows():
+                    prefix = ""
+                    if has_week and has_shift:
+                        prefix = f"нед.{int(row['week']):02d} {row['shift']}: "
+                    self.summary_lines.append(
+                        f"  - {prefix}{row['machine_id']} — 0 из {int(row['required'])}"
                     )
 
         except Exception as e:
