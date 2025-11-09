@@ -33,15 +33,15 @@ week,machine_id,night,day,evening
 47,SM-20,False,True,False
 47,SM-21,False,True,False
 48,PM-01,True,True,True
+48,PM-02,True,True,True
 48,PM-03,True,True,True
+48,PM-04,True,True,True
 48,SM-01,True,True,True
 48,SM-02,True,True,True
 48,SM-03,True,True,True
 48,SM-04,True,True,True
 49,PM-01,True,True,True
-49,PM-02,True,True,True
 49,PM-03,True,True,True
-49,PM-04,True,True,True
 49,SM-01,True,True,True
 49,SM-02,True,True,True
 49,SM-03,True,True,True
