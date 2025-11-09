@@ -14,7 +14,7 @@
 | `main.py`, `ui_main_window.py`, `ui_main_window.ui` | PyQt5‑GUI: выбор недели, запуск пайплайна, просмотр таблиц и сохранение результатов. |
 | `scheduler.py` | Логика `DataPipeline`, `AssignmentEngine`, `SchedulerReport`. |
 | `data/` | Актуальные CSV справочники и история (`workers.csv`, `equipment.csv`, `position_requirements.csv`, `plan.csv`, `assignment_history.csv`). Все хранятся в `utf-8-sig`. |
-| `assignment_output_GUI.csv` | сохраняется из GUI при нажатии **Save**, служит журналом назначений. |
+| `assignment_history.csv` | сохраняется из GUI при нажатии **Save**, служит журналом назначений. |
 | `output/` | Читабельные `.txt` отчёты (`Расписание_Неделя_<N>.txt`) сохраняется из GUI. |
 | `img/`, `index.html` | Материалы презентации и тестовая веб-витрина. |
 | `Gen_V2.ipynb` | Исследовательский ноутбук; идеи переносим в код/README перед публикацией. |
