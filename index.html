@@ -143,6 +143,45 @@
             transform: scale(1);
         }
 
+        /* Отключение анимации для слайдов с классом no-animation */
+        .slide.no-animation,
+        .slide.no-animation * {
+            transition: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+        }
+
+        /* Для slide-6: плавное появление, но мгновенное исчезновение */
+        .slide.exit-no-animation {
+            transition: none !important;
+        }
+
+        .slide.exit-no-animation.active {
+            transition: all 0.8s cubic-bezier(0.4, 0.0, 0.2, 1) !important;
+        }
+
+        /* --- Слайд, который появляется мгновенно, но уходит с анимацией --- */
+        .slide.enter-no-animation.active {
+            transition: none !important;
+        }
+
+        .slide.enter-no-animation {
+            transition: all 0.8s cubic-bezier(0.4, 0.0, 0.2, 1) !important;
+        }
+
+        /* Чтобы текст и изображения тоже появлялись мгновенно */
+        .slide.enter-no-animation.active * {
+            transition: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+        }
+
+        .slide.enter-no-animation * {
+            transition: all 0.8s ease !important;
+        }
+
+
+
         .slide-content {
             max-width: 1600px;
             width: 100%;
@@ -561,6 +600,9 @@
                         <li><strong>Нормализация:</strong> приведение данных к унифицированному виду.</li>
                         <li><strong>Алгоритм назначения:</strong> поэтапное распределение работников.</li>
                         <li><strong>Вывод и сохранение:</strong> отчёты, интерфейс, накопительная история.</li>
+                        <li><strong>Реализация:</strong> на Python — <code>pandas</code> для обработки данных и
+                            <code>PyQt5</code> для интерфейса.
+                        </li>
                     </ul>
                 </div>
             </div>
@@ -587,11 +629,53 @@
         </section>
 
         <!-- Слайд 6. Этап 2 — Алгоритм назначения -->
-        <section class="slide" id="slide-6">
+        <section class="slide exit-no-animation" id="slide-6">
             <div class="slide-content">
                 <div class="visual-block glass-card"
                     style="padding: 0; background: transparent; box-shadow: none; border: none;">
                     <img src="img\placeholder_slide_6.png" alt="Алгоритм назначения" class="arch-img">
+                </div>
+                <div class="text-block right">
+                    <h2>🤖 Этап 2 — Алгоритм назначения</h2>
+                    <p>Алгоритм поэтапно подбирает работников к слотам рабочих мест, начиная с жёстких условий и
+                        постепенно их ослабляя.</p>
+                    <ol style="margin-top: 1.5rem; margin-left: 1.5rem;">
+                        <li><strong>Строгий раунд</strong> — точное совпадение профессии и разряда.</li>
+                        <li><strong>Мягкий раунд</strong> — допускаются смежные профессии и разряд на единицу выше.</li>
+                        <li><strong>Межсменное доукомплектование</strong> — поиск кандидатов из других смен.</li>
+                        <li><strong>Балансировка</strong> — анализ слабых бригад и перераспределение.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- Слайд 6_2. Этап 2 — Алгоритм назначения -->
+        <section class="slide no-animation" id="slide-6">
+            <div class="slide-content">
+                <div class="visual-block glass-card"
+                    style="padding: 0; background: transparent; box-shadow: none; border: none;">
+                    <img src="img\placeholder_slide_6_2.png" alt="Алгоритм назначения" class="arch-img">
+                </div>
+                <div class="text-block right">
+                    <h2>🤖 Этап 2 — Алгоритм назначения</h2>
+                    <p>Алгоритм поэтапно подбирает работников к слотам рабочих мест, начиная с жёстких условий и
+                        постепенно их ослабляя.</p>
+                    <ol style="margin-top: 1.5rem; margin-left: 1.5rem;">
+                        <li><strong>Строгий раунд</strong> — точное совпадение профессии и разряда.</li>
+                        <li><strong>Мягкий раунд</strong> — допускаются смежные профессии и разряд на единицу выше.</li>
+                        <li><strong>Межсменное доукомплектование</strong> — поиск кандидатов из других смен.</li>
+                        <li><strong>Балансировка</strong> — анализ слабых бригад и перераспределение.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <!-- Слайд 6_3. Этап 2 — Алгоритм назначения -->
+        <section class="slide enter-no-animation" id="slide-6">
+            <div class="slide-content">
+                <div class="visual-block glass-card"
+                    style="padding: 0; background: transparent; box-shadow: none; border: none;">
+                    <img src="img\placeholder_slide_6_3.png" alt="Алгоритм назначения" class="arch-img">
                 </div>
                 <div class="text-block right">
                     <h2>🤖 Этап 2 — Алгоритм назначения</h2>
@@ -817,13 +901,13 @@
             if (demoBtn.classList.contains('loading')) return; // Prevent multiple clicks
 
             demoBtn.classList.add('loading');
-            demoBtn.textContent = 'Запуск...';
-            demoStatus.style.opacity = '1';
-            demoStatus.textContent = 'Загрузка окружения...';
+            demoBtn.textContent = 'Загрузка окружения...';
+            // demoStatus.style.opacity = '1';
+            // demoStatus.textContent = 'Загрузка окружения...';
 
             // Start 30-second timer
             let timeLeft = 30;
-            demoStatus.textContent = `Демонстрация запущена. Автопереход через ${timeLeft} сек.`;
+            // demoStatus.textContent = `Демонстрация запущена. Автопереход через ${timeLeft} сек.`;
 
             demoTimer = setInterval(() => {
                 timeLeft--;
@@ -832,7 +916,7 @@
                     demoTimer = null;
                     nextSlide(); // Move to the next slide
                 } else {
-                    demoStatus.textContent = `Демонстрация запущена. Автопереход через ${timeLeft} сек.`;
+                    //demoStatus.textContent = `Демонстрация запущена. Автопереход через ${timeLeft} сек.`;
                 }
             }, 1000);
         });
