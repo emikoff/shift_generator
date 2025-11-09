@@ -232,11 +232,12 @@ class AppWindow(QMainWindow, Ui_MainWindow):
         """Показывает производственный план."""
         self._display_dataframe(self.data_view_table, self.plan_df)
 
-    def load_saved_results(self, file_path="assignment_output_GUI.csv"):
+    def load_saved_results(self, file_path="data/assignment_history.csv"):
         """Перечитывает сохранённый CSV и обновляет таблицу и отчёт."""
         try:
             df = pd.read_csv(file_path)
             self.final_assignments_df = df
+            self.schedule_df = df
 
             # Обновляем текстовый отчёт
             if isinstance(self.scheduler_report, SchedulerReport):
@@ -258,7 +259,7 @@ class AppWindow(QMainWindow, Ui_MainWindow):
         if self.final_assignments_df is not None:
             try:
                 # --- Блок 1: Сохранение CSV (без изменений) ---
-                file_path_csv = "assignment_output_GUI.csv"
+                file_path_csv = "data/assignment_history.csv"
                 current_week = self.final_assignments_df["week"].iloc[0]
 
                 if os.path.exists(file_path_csv):
@@ -269,7 +270,7 @@ class AppWindow(QMainWindow, Ui_MainWindow):
                             self,
                             "Подтверждение перезаписи",
                             f"Данные за неделю {current_week} уже есть. "
-                            "Перезаписать их в assignment_output_GUI.csv?",
+                            "Перезаписать их в data/assignment_history.csv?",
                             QMessageBox.Yes | QMessageBox.No,
                         )
                         if reply == QMessageBox.No:
@@ -344,7 +345,7 @@ def set_dark_palette(app):
     palette.setColor(QPalette.BrightText, QColor(255, 0, 0))
     palette.setColor(QPalette.Link, QColor(42, 130, 218))
     palette.setColor(QPalette.Highlight, QColor(80, 80, 80))
-    palette.setColor(QPalette.HighlightedText, QColor(90, 120, 200))
+    palette.setColor(QPalette.HighlightedText, QColor(170, 170, 60))
     app.setPalette(palette)
 
 
