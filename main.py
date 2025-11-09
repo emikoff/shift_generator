@@ -108,10 +108,11 @@ class AppWindow(QMainWindow, Ui_MainWindow):
         self.view_workers_button.clicked.connect(self.view_workers)
         self.view_equipment_button.clicked.connect(self.view_equipment)
         self.view_history_button.clicked.connect(self.view_history)
+        self.view_plan_button.clicked.connect(self.view_plan)
 
         # Заглушки
-        self.pre_assign_button.clicked.connect(self.show_stub_message)
-        self.edit_button.clicked.connect(self.show_stub_message)
+        # self.pre_assign_button.clicked.connect(self.show_stub_message)
+        # self.edit_button.clicked.connect(self.show_stub_message)
 
     def _display_dataframe(self, table_widget, dataframe):
         """Создает модель и привязывает DataFrame к QTableView."""
@@ -227,6 +228,10 @@ class AppWindow(QMainWindow, Ui_MainWindow):
         """Показывает историю."""
         self._display_dataframe(self.data_view_table, self.schedule_df)
 
+    def view_plan(self):
+        """Показывает производственный план."""
+        self._display_dataframe(self.data_view_table, self.plan_df)
+
     def load_saved_results(self, file_path="assignment_output_GUI.csv"):
         """Перечитывает сохранённый CSV и обновляет таблицу и отчёт."""
         try:
@@ -246,25 +251,30 @@ class AppWindow(QMainWindow, Ui_MainWindow):
             QMessageBox.critical(self, "Ошибка", f"Не удалось загрузить данные:\n{e}")
 
     def save_results_to_csv(self):
-        """Сохраняет сгенерированный график и обновляет буфер данных."""
+        """
+        Сохраняет сгенерированный график (CSV + TXT)
+        и обновляет буфер данных.
+        """
         if self.final_assignments_df is not None:
             try:
-                file_path = "assignment_output_GUI.csv"
+                # --- Блок 1: Сохранение CSV (без изменений) ---
+                file_path_csv = "assignment_output_GUI.csv"
+                current_week = self.final_assignments_df["week"].iloc[0]
 
-                # Проверяем, есть ли уже данные за эту неделю
-                if os.path.exists(file_path):
-                    existing = pd.read_csv(file_path)
-                    current_week = self.final_assignments_df["week"].iloc[0]
+                if os.path.exists(file_path_csv):
+                    existing = pd.read_csv(file_path_csv)
+
                     if current_week in existing["week"].unique():
                         reply = QMessageBox.question(
                             self,
                             "Подтверждение перезаписи",
-                            f"Данные за неделю {current_week} уже есть. Перезаписать?",
+                            f"Данные за неделю {current_week} уже есть. "
+                            "Перезаписать их в assignment_output_GUI.csv?",
                             QMessageBox.Yes | QMessageBox.No,
                         )
                         if reply == QMessageBox.No:
                             return
-                        # Удаляем старые записи этой недели перед добавлением
+
                         existing = existing[existing["week"] != current_week]
                         df_to_save = pd.concat(
                             [existing, self.final_assignments_df], ignore_index=True
@@ -276,19 +286,44 @@ class AppWindow(QMainWindow, Ui_MainWindow):
                 else:
                     df_to_save = self.final_assignments_df.copy()
 
-                # Сохраняем итоговый CSV
-                df_to_save.to_csv(file_path, index=False, encoding="utf-8-sig")
+                df_to_save.to_csv(file_path_csv, index=False, encoding="utf-8-sig")
 
-                # После сохранения — обновляем буфер
-                self.load_saved_results(file_path)
+                # --- Блок 2: (ИЗМЕНЕН) Сохранение .TXT файла ---
+                file_path_txt = f"Расписание_Неделя_{current_week}.txt"
 
-                QMessageBox.information(
-                    self, "Успех", "Файл сохранен и данные обновлены."
+                # Получаем дату из GUI и конвертируем в стандартный тип Python
+                start_date_py = self.week_date_edit.date().toPyDate()
+
+                # Вызываем метод из SchedulerReport
+                txt_content = self.scheduler_report.generate_human_readable_txt(
+                    current_week, start_date_py
                 )
+
+                saved_txt_path = None
+                if txt_content:
+                    try:
+                        with open(file_path_txt, "w", encoding="utf-8") as f:
+                            f.write(txt_content)
+                        saved_txt_path = file_path_txt
+                    except Exception as txt_e:
+                        print(f"Не удалось сохранить TXT файл: {txt_e}")
+
+                # --- Блок 3: Обновление буфера (без изменений) ---
+                self.load_saved_results(file_path_csv)
+
+                # --- Блок 4: Сообщение об успехе (без изменений) ---
+                msg = f"Файл CSV сохранен:\n{file_path_csv}\n\n"
+                if saved_txt_path:
+                    msg += f"Файл TXT сохранен:\n{saved_txt_path}\n\n"
+                else:
+                    msg += "Читаемый TXT файл НЕ сохранен (ошибка генерации).\n\n"
+                msg += "Данные в программе обновлены."
+
+                QMessageBox.information(self, "Успех", msg)
 
             except Exception as e:
                 QMessageBox.critical(
-                    self, "Ошибка сохранения", f"Не удалось сохранить файл:\n{e}"
+                    self, "Ошибка сохранения", f"Не удалось сохранить файлы:\n{e}"
                 )
         else:
             QMessageBox.critical(self, "Ошибка", "Сначала сгенерируйте график!")

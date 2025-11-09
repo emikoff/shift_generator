@@ -64,7 +64,7 @@
                 <item>
                  <widget class="QPushButton" name="save_button">
                   <property name="text">
-                   <string>Сохранить в CSV</string>
+                   <string>Сохранить</string>
                   </property>
                  </widget>
                 </item>
@@ -171,87 +171,6 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tab_2">
-       <attribute name="title">
-        <string>Редактирование</string>
-       </attribute>
-       <layout class="QHBoxLayout" name="horizontalLayout_9">
-        <item>
-         <layout class="QVBoxLayout" name="verticalLayout_9">
-          <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_5">
-            <item>
-             <layout class="QHBoxLayout" name="horizontalLayout_4">
-              <item>
-               <layout class="QVBoxLayout" name="verticalLayout_7">
-                <item>
-                 <widget class="QLabel" name="label_2">
-                  <property name="text">
-                   <string>Ручное назначение перед генерацией</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QLabel" name="label_3">
-                  <property name="text">
-                   <string>Редактирование сгенерированного графика</string>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </item>
-              <item>
-               <layout class="QVBoxLayout" name="verticalLayout_3">
-                <item>
-                 <widget class="QPushButton" name="pre_assign_button">
-                  <property name="text">
-                   <string>Настроить</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QPushButton" name="edit_button">
-                  <property name="text">
-                   <string>Редактировать</string>
-                  </property>
-                 </widget>
-                </item>
-               </layout>
-              </item>
-             </layout>
-            </item>
-            <item>
-             <spacer name="horizontalSpacer_2">
-              <property name="orientation">
-               <enum>Qt::Horizontal</enum>
-              </property>
-              <property name="sizeHint" stdset="0">
-               <size>
-                <width>40</width>
-                <height>20</height>
-               </size>
-              </property>
-             </spacer>
-            </item>
-           </layout>
-          </item>
-          <item>
-           <spacer name="verticalSpacer">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>40</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-         </layout>
-        </item>
-       </layout>
-      </widget>
       <widget class="QWidget" name="tab_3">
        <attribute name="title">
         <string>Просмотр данных</string>
@@ -264,21 +183,28 @@
             <item>
              <widget class="QPushButton" name="view_history_button">
               <property name="text">
-               <string>Показать Исторический график</string>
+               <string>Исторический график</string>
               </property>
              </widget>
             </item>
             <item>
              <widget class="QPushButton" name="view_equipment_button">
               <property name="text">
-               <string>Показать Оборудование</string>
+               <string>Оборудование</string>
               </property>
              </widget>
             </item>
             <item>
              <widget class="QPushButton" name="view_workers_button">
               <property name="text">
-               <string>Показать Работников</string>
+               <string>Работники</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QPushButton" name="view_plan_button">
+              <property name="text">
+               <string>План</string>
               </property>
              </widget>
             </item>

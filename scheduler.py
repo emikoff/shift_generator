@@ -1,6 +1,7 @@
 """Core data preparation, assignment, and reporting helpers for the scheduler GUI."""
 
 import pandas as pd
+from datetime import timedelta
 
 
 class DataPipeline:
@@ -634,3 +635,75 @@ class SchedulerReport:
             )
             .reset_index(drop=True)
         )
+
+    def generate_human_readable_txt(self, target_week, start_date):
+        """
+        Генерирует текстовое представление расписания для человека.
+        (Вызывается из GUI)
+
+        Args:
+            target_week (int): Номер целевой недели.
+            start_date (datetime.date): Объект date понедельника.
+        """
+        try:
+            # 1. Фильтруем DF только по текущей неделе
+            current_week_df = self.final_assignments_df[
+                self.final_assignments_df["week"] == target_week
+            ]
+
+            if current_week_df.empty:
+                return None  # Нет данных для генерации
+
+            # 2. Собираем текстовые строки
+            lines = []
+
+            # --- Строка 1: Диапазон дат ---
+            end_date = start_date + timedelta(days=4)  # Пятница
+            date_range_str = (
+                f"Расписание на неделю: {start_date.strftime('%d.%m.%Y')} - "
+                f"{end_date.strftime('%d.%m.%Y')} (Неделя {target_week})"
+            )
+
+            lines.append(date_range_str)
+            lines.append("=" * len(date_range_str))
+            lines.append("")  # Пустая строка
+
+            # 3. Цикл по сменам, машинам, позициям
+            shift_translation = {"night": "Ночь", "day": "День", "evening": "Вечер"}
+            shifts_order = ["night", "day", "evening"]
+
+            for shift in shifts_order:
+                shift_name = shift_translation.get(shift, shift.capitalize())
+                lines.append(f"--- СМЕНА: {shift_name} ---")
+
+                shift_df = current_week_df[
+                    current_week_df["shift"] == shift
+                ].sort_values(by=["machine_id", "position"])
+
+                if shift_df.empty:
+                    lines.append("\t(Нет назначений в этой смене)")
+                    lines.append("")
+                    continue
+
+                machines = shift_df["machine_id"].unique()
+                for machine in machines:
+                    lines.append(f"\tМашина: {machine}")
+
+                    machine_df = shift_df[shift_df["machine_id"] == machine]
+
+                    for _, assignment_row in machine_df.iterrows():
+                        pos_name = assignment_row["position"]
+                        worker_name = assignment_row["name"]
+
+                        if pd.isna(worker_name):
+                            worker_name = "--- ВАКАНСИЯ ---"
+
+                        lines.append(f"\t\t- Позиция {pos_name}: {worker_name}")
+
+                    lines.append("")  # Пустая строка после каждой машины
+
+            return "\n".join(lines)
+
+        except Exception as e:
+            print(f"Ошибка при генерации TXT в SchedulerReport: {e}")
+            return None
