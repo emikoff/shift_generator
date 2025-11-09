@@ -86,11 +86,11 @@ class AppWindow(QMainWindow, Ui_MainWindow):
 
         # 4.3. Загружаем "сырые" данные
         try:
-            self.workers_df = pd.read_csv("workers.csv")
-            self.equipment_df = pd.read_csv("equipment.csv")
-            self.schedule_df = pd.read_csv("assignment_output_GUI.csv")
-            self.requirements_df = pd.read_csv("position_requirements.csv")
-            self.plan_df = pd.read_csv("plan.csv")
+            self.workers_df = pd.read_csv("data/workers.csv")
+            self.equipment_df = pd.read_csv("data/equipment.csv")
+            self.schedule_df = pd.read_csv("data/assignment_history.csv")
+            self.requirements_df = pd.read_csv("data/position_requirements.csv")
+            self.plan_df = pd.read_csv("data/plan.csv")
         except FileNotFoundError as e:
             QMessageBox.critical(
                 self, "Ошибка загрузки", f"Не найден файл: {e.filename}"
@@ -289,7 +289,7 @@ class AppWindow(QMainWindow, Ui_MainWindow):
                 df_to_save.to_csv(file_path_csv, index=False, encoding="utf-8-sig")
 
                 # --- Блок 2: (ИЗМЕНЕН) Сохранение .TXT файла ---
-                file_path_txt = f"Расписание_Неделя_{current_week}.txt"
+                file_path_txt = f"output/Расписание_Неделя_{current_week}.txt"
 
                 # Получаем дату из GUI и конвертируем в стандартный тип Python
                 start_date_py = self.week_date_edit.date().toPyDate()
