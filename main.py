@@ -1,5 +1,3 @@
-"""PyQt5 desktop front-end for the shift scheduler toolchain."""
-
 # pyuic5 ui_main_window.ui -o ui_main_window.py
 import sys
 import os
@@ -14,13 +12,10 @@ from PyQt5.QtCore import QAbstractTableModel, Qt, QDate, QStringListModel
 # Импорт для темной темы
 from PyQt5.QtGui import QPalette, QColor
 
-# -----------------------------------------------------------------
-# 2. ИМПОРТЫ ТВОЕЙ ЛОГИКИ
-# -----------------------------------------------------------------
-# Импортируем твои ООП-классы из scheduler.py
+# Импортируем ООП-классы из scheduler.py
 from scheduler import DataPipeline, AssignmentEngine, SchedulerReport
 
-# Импортируем твой СКОМПИЛИРОВАННЫЙ UI
+# Импортируем СКОМПИЛИРОВАННЫЙ UI
 from ui_main_window import Ui_MainWindow
 
 
@@ -350,7 +345,7 @@ def set_dark_palette(app):
 
 
 # -----------------------------------------------------------------
-# 5. ЗАПУСК ПРИЛОЖЕНИЯ (Этот код не меняй)
+# 5. ЗАПУСК ПРИЛОЖЕНИЯ
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     app = QApplication(sys.argv)

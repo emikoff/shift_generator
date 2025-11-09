@@ -1,5 +1,3 @@
-"""Core data preparation, assignment, and reporting helpers for the scheduler GUI."""
-
 import pandas as pd
 from datetime import timedelta
 
